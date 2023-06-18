@@ -1,0 +1,6 @@
+package com.kgeok.vibrance
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {
+}
