@@ -1,4 +1,6 @@
 PODS:
+  - audioplayers_darwin (0.0.1):
+    - Flutter
   - device_calendar (0.0.1):
     - Flutter
   - Flutter (1.0.0)
@@ -21,6 +23,7 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/ios`)
   - device_calendar (from `.symlinks/plugins/device_calendar/ios`)
   - Flutter (from `Flutter`)
   - flutter_native_timezone (from `.symlinks/plugins/flutter_native_timezone/ios`)
@@ -35,6 +38,8 @@ SPEC REPOS:
     - FMDB
 
 EXTERNAL SOURCES:
+  audioplayers_darwin:
+    :path: ".symlinks/plugins/audioplayers_darwin/ios"
   device_calendar:
     :path: ".symlinks/plugins/device_calendar/ios"
   Flutter:
@@ -53,6 +58,7 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
+  audioplayers_darwin: 877d9a4d06331c5c374595e46e16453ac7eafa40
   device_calendar: 9cb33f88a02e19652ec7b8b122ca778f751b1f7b
   Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
   flutter_native_timezone: 5f05b2de06c9776b4cc70e1839f03de178394d22

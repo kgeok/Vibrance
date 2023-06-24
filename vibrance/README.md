@@ -1,4 +1,0 @@
-# vibrance
-
-Vibrance
-

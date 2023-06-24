@@ -34,12 +34,12 @@ class CustomTheme {
           inactiveTrackColor: Color(0xFF8D8E98),
           thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10)),
       buttonTheme: const ButtonThemeData(),
-      scaffoldBackgroundColor: darkMode,
+      scaffoldBackgroundColor: lightMode,
       canvasColor: lightMode,
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           unselectedItemColor: Color.fromRGBO(54, 9, 61, 1)),
       appBarTheme: AppBarTheme(
-        backgroundColor: darkMode,
+        backgroundColor: lightMode,
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -60,12 +60,12 @@ class CustomTheme {
           inactiveTrackColor: Color(0xFF8D8E98),
           thumbColor: Color.fromRGBO(54, 9, 61, 1),
           thumbShape: RoundSliderThumbShape(enabledThumbRadius: 12)),
-      scaffoldBackgroundColor: lightMode,
+      scaffoldBackgroundColor: darkMode,
       canvasColor: darkMode,
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           unselectedItemColor: Color.fromRGBO(110, 43, 113, 1)),
       appBarTheme: AppBarTheme(
-        backgroundColor: lightMode,
+        backgroundColor: darkMode,
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
         iconTheme: const IconThemeData(color: Colors.white),
       ),

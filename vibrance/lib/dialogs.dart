@@ -158,8 +158,8 @@ void onboardDialog(BuildContext context, var header, var body1, var body2,
       return AlertDialog(
           backgroundColor:
               MediaQuery.of(context).platformBrightness == Brightness.light
-                  ? lightMode.withOpacity(0.8)
-                  : darkMode.withOpacity(0.8),
+                  ? lightMode.withOpacity(1)
+                  : darkMode.withOpacity(1),
           title: Text(header, style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(
@@ -246,23 +246,15 @@ void helpDialog(BuildContext context) {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text('Tap the Map to set a Pin', style: dialogBody),
-                const Text(''),
                 Text(
-                    'Tapping the Pin Menu will show options for managing and customizing pins',
+                    'Use the slider to rate how you are feeling on a scale from 1-6',
                     style: dialogBody),
                 const Text(''),
                 Text(
-                    'Tap Caption before setting a Pin to set the Pin\'s Caption',
+                    'Add content in Settings to help inspire you after rating your mood',
                     style: dialogBody),
                 const Text(''),
-                Text('Tap Color before setting a Pin to set the Pin\'s Color',
-                    style: dialogBody),
-                const Text(''),
-                Text('Long Press the Map to see your last Pin',
-                    style: dialogBody),
-                const Text(''),
-                Text('Tap the Menu button to open the Journal',
+                Text('Open the Journal to get a record of your mood ratings',
                     style: dialogBody),
               ],
             ),

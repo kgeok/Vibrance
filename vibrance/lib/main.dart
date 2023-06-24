@@ -12,6 +12,8 @@ import 'package:vibrance/theme/custom_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:record/record.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:device_calendar/device_calendar.dart';
 import 'package:webfeed/webfeed.dart';
@@ -61,6 +63,7 @@ var textBuffer;
 var text;
 double entrywidth = 350;
 Color color = Color(0xFF4A3E7E);
+var backgroundcolor;
 String peptalk = "This one is a good one.";
 
 class DayData {
@@ -87,6 +90,7 @@ class ContentData {
   late var contentcaption;
   late var contentargone;
   late var contentargtwo;
+  late var contentargthree;
   late var contentweight;
 
   ContentData(
@@ -95,17 +99,20 @@ class ContentData {
       this.contentcaption,
       this.contentargone,
       this.contentargtwo,
+      this.contentargthree,
       this.contentweight});
 }
 
 //Audio Recording Components
 
 Future beginRecording() async {
+  final root = await getDatabasesPath();
   try {
     if (await record.hasPermission()) {
-      await record.start();
+      await record.start(path: root + "/recording.m4a");
       isRecording = await record.isRecording();
       print("Recording: $isRecording");
+      print(root);
     }
   } catch (e) {
     print(e);
@@ -118,19 +125,51 @@ Future stopRecording() async {
   await record.stop();
   var path = await record.stop();
   print(path);
-/* 
+
   if (path != null) {
     final XFile selectedAudio = XFile(path);
     selectedAudiotoData = await selectedAudio.readAsBytes();
     ProjectMirrorDatabase.instance
-        .updateContentDB("voice", "", selectedAudiotoData); 
-  } 
-*/
+        .updateContentDB("voice", "", selectedAudiotoData);
+  }
+
   isRecording = false;
 }
 
-Widget audioPlayer(String caption) {
-  return Center();
+void openAudioPlayer(BuildContext context, argone, argtwo) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+          backgroundColor: Colors.green,
+          title: Text("Voice Note", style: dialogHeader),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(argone, style: dialogBody),
+                Center(
+                  child: IconButton(
+                      onPressed: () async {
+                        final audioplayer = AudioPlayer();
+
+                        await audioplayer.play(BytesSource(argtwo));
+                      },
+                      iconSize: 50,
+                      icon: Icon(Icons.play_arrow)),
+                )
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK', style: dialogBody),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            )
+          ]);
+    },
+  );
 }
 
 Future addContent() async {
@@ -151,7 +190,8 @@ Future probeLatestPodcast(String url) async {
   results.add(ContentData(
       contenttype: "podcast",
       contentargone: (content.title).toString(),
-      contentargtwo: (latestitem.title).toString()));
+      contentargtwo: (latestitem.title).toString(),
+      contentargthree: (latestitem.pubDate).toString()));
 
   addContent();
 }
@@ -532,8 +572,8 @@ List<Widget> makeJournalEntry(BuildContext context) {
 
 //Content Entry Components
 
-Widget contentEntry(
-    BuildContext context, var id, var type, var argone, var argtwo) {
+Widget contentEntry(BuildContext context, var id, var type, var argone,
+    var argtwo, var argthree) {
   switch (type) {
     case "music":
       color = Colors.pink;
@@ -594,7 +634,31 @@ Widget contentEntry(
           splashColor: color,
           highlightColor: color,
           onTap: () {
-            null;
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                    backgroundColor: Colors.purple,
+                    title: Text(argone, style: dialogHeader),
+                    content: SingleChildScrollView(
+                      child: ListBody(
+                        children: <Widget>[
+                          Text(argthree, style: dialogBody),
+                          Text("", style: dialogBody),
+                          Text(argtwo, style: dialogBody),
+                        ],
+                      ),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        child: Text('OK', style: dialogBody),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      )
+                    ]);
+              },
+            );
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -647,7 +711,30 @@ Widget contentEntry(
           splashColor: color,
           highlightColor: color,
           onTap: () {
-            null;
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                    backgroundColor: Colors.yellow,
+                    title: Text(argone, style: dialogHeader),
+                    content: SingleChildScrollView(
+                      child: ListBody(
+                        children: <Widget>[
+                          Text("", style: dialogBody),
+                          Text(argtwo, style: dialogBody),
+                        ],
+                      ),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        child: Text('OK', style: dialogBody),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      )
+                    ]);
+              },
+            );
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -761,7 +848,7 @@ Widget contentEntry(
           splashColor: color,
           highlightColor: color,
           onTap: () {
-            null;
+            openAudioPlayer(context, argone, argtwo);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -874,7 +961,7 @@ Widget contentEntry(
                       ])))));
 
     default:
-      color = Colors.purple;
+      color = lightMode;
       return InkWell(
           splashColor: color,
           highlightColor: color,
@@ -1044,22 +1131,28 @@ void clearState() {
   ProjectMirrorDatabase.instance.clearDaysDB();
 }
 
+Future startOnboarding(BuildContext context) async {
+  await Future.delayed(const Duration(
+      milliseconds:
+          1500)); //It apparently takes 1 second or so for DB to populate State
+
+  if (onboarding == 1) {
+    onboardDialog(
+        context,
+        "Welcome to $sku",
+        "This is $sku, a way to push you forward with your own content.",
+        "Inspire yourself with the help of your Music, Photos, Podcasts, Voice and more.",
+        "Keep track of how you were feeling with the Journal",
+        "All on Device and not stored in the cloud.");
+
+    print("Onboarding...");
+  } else {
+    print("No Onboarding...");
+  }
+}
+
 class MyAppState extends State<MainPage> {
   var pages = <Widget>[HomePage(), JournalPage(), SettingsPage()];
-  Future startOnboarding() async {
-    await Future.delayed(const Duration(
-        milliseconds:
-            1500)); //It apparently takes 1 second or so for DB to populate State
-
-    if (onboarding == 1) {
-      onboardDialog(
-          context, "Welcome to ProjectMirror", "TBD", "TBD", "TBD", "TBD");
-
-      print("Onboarding...");
-    } else {
-      print("No Onboarding...");
-    }
-  }
 
   void reenumerateState() {
     noteBuffer = "";
@@ -1070,6 +1163,12 @@ class MyAppState extends State<MainPage> {
       journal = [];
     });
     ProjectMirrorDatabase.instance.initStatefromDB();
+  }
+
+  @override
+  initState() {
+    super.initState();
+    startOnboarding(context);
   }
 
   @override
@@ -1105,7 +1204,6 @@ Future openResult(BuildContext context) async {
   dayCounter++;
   print("Mood: $currentMood");
   journal.add(dayCounter - 1);
-
   content.clear();
   results.clear();
   setVibrance(currentMood.toInt());
@@ -1159,7 +1257,8 @@ Future openResult(BuildContext context) async {
                               results[index].contentid,
                               results[index].contenttype,
                               results[index].contentargone,
-                              results[index].contentargtwo);
+                              results[index].contentargtwo,
+                              results[index].contentargthree);
                         }))
                   ]))
                 ],
@@ -1190,64 +1289,91 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-              child: Text("How are you\nfeeling?",
-                  style: GoogleFonts.newsCycle(
-                    color: Colors.white,
-                    fontSize: 50,
-                  ))),
-          SizedBox(height: 30),
-          Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Card(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      ListTile(
-                        leading: Icon(Icons.linear_scale),
-                        title: Text("1 is lowest, 6 is highest",
-                            style: GoogleFonts.newsCycle(color: Colors.black)),
-                      ),
-                      Text("${currentMood.toInt()}/6",
-                          style: GoogleFonts.newsCycle(
-                              color: Colors.black, fontSize: 24)),
-                      Slider(
-                          value: currentMood,
-                          min: 1,
-                          max: 6,
-                          divisions: 5,
-                          onChanged: (double value) {
-                            setState(() => currentMood = value);
-                          }),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-                TextButton(
-                  style: ButtonStyle(
-                      minimumSize:
-                          MaterialStatePropertyAll<Size>(Size(250, 50)),
-                      backgroundColor: MaterialStatePropertyAll<Color>(
-                          Colors.white.withOpacity(0.8)),
-                      enableFeedback: true),
-                  onPressed: () {
-                    openResult(context);
-                  },
-                  child: Text('Next',
+    return AnimatedContainer(
+        duration: Duration(seconds: 1),
+        curve: Curves.fastOutSlowIn,
+        color: backgroundcolor,
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                  child: Text("How are you\nfeeling?",
                       style: GoogleFonts.newsCycle(
-                          color: Color.fromRGBO(110, 43, 113, 1),
-                          fontSize: 16)),
-                ),
-              ])
-        ]);
+                        color: Colors.white,
+                        fontSize: 50,
+                      ))),
+              SizedBox(height: 30),
+              Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Card(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          ListTile(
+                            leading: Icon(Icons.linear_scale),
+                            title: Text("1 is lowest, 6 is highest",
+                                style:
+                                    GoogleFonts.newsCycle(color: Colors.black)),
+                          ),
+                          Text("${currentMood.toInt()}/6",
+                              style: GoogleFonts.newsCycle(
+                                  color: Colors.black, fontSize: 24)),
+                          Slider(
+                              value: currentMood,
+                              min: 1,
+                              max: 6,
+                              divisions: 5,
+                              onChanged: (double value) {
+                                setState(() {
+                                  switch (value) {
+                                    case 1:
+                                      backgroundcolor = lightMode[900];
+                                      break;
+                                    case 2:
+                                      backgroundcolor = lightMode[700];
+                                      break;
+                                    case 3:
+                                      backgroundcolor = lightMode[500];
+                                      break;
+                                    case 4:
+                                      backgroundcolor = lightMode[100];
+                                      break;
+                                    case 5:
+                                      backgroundcolor = lightMode[200];
+                                      break;
+                                    case 6:
+                                      backgroundcolor = lightMode[400];
+                                      break;
+                                  }
+                                  currentMood = value;
+                                });
+                              }),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextButton(
+                      style: ButtonStyle(
+                          minimumSize:
+                              MaterialStatePropertyAll<Size>(Size(250, 50)),
+                          backgroundColor: MaterialStatePropertyAll<Color>(
+                              Colors.white.withOpacity(0.8)),
+                          enableFeedback: true),
+                      onPressed: () {
+                        openResult(context);
+                      },
+                      child: Text('Next',
+                          style: GoogleFonts.newsCycle(
+                              color: Color.fromRGBO(110, 43, 113, 1),
+                              fontSize: 16)),
+                    ),
+                  ])
+            ]));
   }
 }
 
@@ -1301,7 +1427,8 @@ class ResultsPageState extends State<ResultsPage> {
                     results[index].contentid,
                     results[index].contenttype,
                     results[index].contentargone,
-                    results[index].contentargtwo);
+                    results[index].contentargtwo,
+                    results[index].contentargthree);
               },
             ),
           ])));
@@ -1868,6 +1995,12 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text("Privacy Policy",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
             onTap: () {},
+          ),
+          ListTile(
+            leading: Icon(Icons.start),
+            title: Text("Quick Start",
+                style: GoogleFonts.newsCycle(color: Colors.black)),
+            onTap: () => helpDialog(context),
           ),
           ListTile(
             leading: Icon(Icons.add),
