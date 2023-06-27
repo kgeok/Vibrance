@@ -103,6 +103,12 @@ class ContentData {
       this.contentweight});
 }
 
+Future<void> redirectURL(String url) async {
+  if (!await launchUrl(Uri.parse(url))) {
+    throw "Error launching link";
+  }
+}
+
 //Audio Recording Components
 
 Future beginRecording() async {
@@ -128,15 +134,30 @@ Future stopRecording() async {
 
   if (path != null) {
     final XFile selectedAudio = XFile(path);
+    //Disposing for when we are done to clear device space
+    File filebuffer = File(path);
     selectedAudiotoData = await selectedAudio.readAsBytes();
+    if (noteBuffer == "") {
+      noteBuffer = DateTime.now().toString().substring(0, 10) + " Recording";
+    }
+    noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
+    note = noteBuffer;
     ProjectMirrorDatabase.instance
-        .updateContentDB("voice", "", selectedAudiotoData);
+        .updateContentDB("voice", noteBuffer, selectedAudiotoData);
+    filebuffer.delete();
+    noteBuffer = "";
   }
 
   isRecording = false;
 }
 
-void openAudioPlayer(BuildContext context, argone, argtwo) {
+void openAudioPlayer(BuildContext context, argone, argtwo) async {
+  final audioplayer = AudioPlayer();
+  final root = await getDatabasesPath();
+  //We know this file variable won't be used but we need an excuse for the file to be generated
+  var file = File(root + "/recording.m4a").writeAsBytes(argtwo);
+  //Disposing for when we are done to clear device space
+  File filebuffer = await file;
   showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -148,15 +169,27 @@ void openAudioPlayer(BuildContext context, argone, argtwo) {
               children: <Widget>[
                 Text(argone, style: dialogBody),
                 Center(
-                  child: IconButton(
+                    child: Row(children: [
+                  IconButton(
                       onPressed: () async {
-                        final audioplayer = AudioPlayer();
-
-                        await audioplayer.play(BytesSource(argtwo));
+                        await audioplayer
+                            .play(DeviceFileSource(root + "/recording.m4a"));
                       },
                       iconSize: 50,
-                      icon: Icon(Icons.play_arrow)),
-                )
+                      icon: Icon(Icons.play_arrow, color: Colors.white)),
+                  IconButton(
+                      onPressed: () async {
+                        audioplayer.pause();
+                      },
+                      iconSize: 50,
+                      icon: Icon(Icons.pause, color: Colors.white)),
+                  IconButton(
+                      onPressed: () async {
+                        audioplayer.stop();
+                      },
+                      iconSize: 50,
+                      icon: Icon(Icons.stop, color: Colors.white)),
+                ]))
               ],
             ),
           ),
@@ -164,6 +197,8 @@ void openAudioPlayer(BuildContext context, argone, argtwo) {
             TextButton(
               child: Text('OK', style: dialogBody),
               onPressed: () {
+                audioplayer.stop();
+                filebuffer.delete();
                 Navigator.of(context).pop();
               },
             )
@@ -491,9 +526,6 @@ void journalDialog(BuildContext context, var caption, var mood, var date,
                                                   Text(
                                                       "Are you sure you want to delete this entry?",
                                                       style: dialogBody),
-                                                  Text(
-                                                      "(This will also delete corresponding Day)",
-                                                      style: dialogBody),
                                                 ],
                                               ),
                                             ),
@@ -513,7 +545,7 @@ void journalDialog(BuildContext context, var caption, var mood, var date,
                                                   days.removeAt(id - 1);
                                                   ProjectMirrorDatabase.instance
                                                       .initDBfromState();
-
+                                                  //reenumerateState();
                                                   Navigator.of(context).pop();
                                                 },
                                               )
@@ -600,8 +632,8 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width / 2) - 10,
                   child: Center(
                       child: Column(
@@ -677,33 +709,36 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width / 2) - 10,
                   child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text(argone,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 16)),
-                        Text(argtwo,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 14))
-                      ])))));
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Text(argone,
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                    maxLines: 1,
+                                    style: GoogleFonts.newsCycle(
+                                        color: color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                        fontSize: 18)),
+                                Text(argtwo,
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                    maxLines: 1,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.newsCycle(
+                                        fontWeight: FontWeight.w500,
+                                        color: color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                        fontSize: 14))
+                              ]))))));
 
     case "event":
       color = Colors.yellow;
@@ -753,8 +788,8 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width / 2) - 10,
                   child: Center(
                       child: Column(
@@ -793,9 +828,12 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                 builder: (BuildContext context) {
                   return AlertDialog(
                     content: Container(
+                        height: 400,
+                        width: (MediaQuery.of(context).size.width) - 10,
                         decoration: BoxDecoration(
-                            image:
-                                DecorationImage(image: MemoryImage(argtwo)))),
+                            image: DecorationImage(
+                                image: MemoryImage(argtwo),
+                                fit: BoxFit.contain))),
                   );
                 });
           },
@@ -803,44 +841,25 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
               child: Container(
-                  padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
-                  decoration: ShapeDecoration(
-                      shadows: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
-                          spreadRadius: 5,
-                          blurRadius: 7,
-                          offset:
-                              const Offset(0, 3), // changes position of shadow
-                        ),
-                      ],
-                      color: color,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
-                  child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Container(
-                            height: 100.0,
-                            width: 150.0,
-                            decoration: BoxDecoration(
-                                image: DecorationImage(
-                                    fit: BoxFit.fitWidth,
-                                    image: MemoryImage(argtwo)))),
-                        Text("Photo",
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 14))
-                      ])))));
+                padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
+                decoration: ShapeDecoration(
+                    shadows: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.125),
+                        spreadRadius: 5,
+                        blurRadius: 7,
+                        offset:
+                            const Offset(0, 3), // changes position of shadow
+                      ),
+                    ],
+                    color: color,
+                    image: DecorationImage(
+                        image: MemoryImage(argtwo), fit: BoxFit.cover),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30))),
+                height: (MediaQuery.of(context).size.width / 2) - 30,
+                width: (MediaQuery.of(context).size.width / 2) - 10,
+              )));
 
     case "voice":
       color = Colors.green;
@@ -867,33 +886,35 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width / 2) - 10,
                   child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text("Voice Note",
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 16)),
-                        Text("Voice Note",
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 14))
-                      ])))));
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Text(argone,
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                    maxLines: 1,
+                                    style: GoogleFonts.newsCycle(
+                                        color: color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                        fontSize: 20)),
+                                Text("Voice Note",
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                    maxLines: 1,
+                                    style: GoogleFonts.newsCycle(
+                                        fontWeight: FontWeight.w500,
+                                        color: color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                        fontSize: 14))
+                              ]))))));
 
     case "text":
       color = Colors.orange;
@@ -942,23 +963,25 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width / 2) - 10,
                   child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text(argone,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 16)),
-                      ])))));
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Text(argone,
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                    maxLines: 1,
+                                    style: GoogleFonts.newsCycle(
+                                        color: color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                        fontSize: 22)),
+                              ]))))));
 
     default:
       color = lightMode;
@@ -986,8 +1009,8 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       ],
                       color: color,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  height: (MediaQuery.of(context).size.width / 2) - 10,
+                          borderRadius: BorderRadius.circular(30))),
+                  height: (MediaQuery.of(context).size.width / 2) - 30,
                   width: (MediaQuery.of(context).size.width) - 10,
                   child: Center(
                       child: Column(
@@ -1218,8 +1241,8 @@ Future openResult(BuildContext context) async {
             builder: (BuildContext context, StateSetter setState) {
           return FractionallySizedBox(
               heightFactor: 0.8,
-              child: Center(
-                  child: Column(
+              widthFactor: 1.0,
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -1241,8 +1264,9 @@ Future openResult(BuildContext context) async {
                             fontSize: 20,
                           ))),
                   SizedBox(height: 15),
-                  SingleChildScrollView(
-                      child: Column(children: [
+                  Center(
+                      child: SingleChildScrollView(
+                          child: Column(children: [
                     Wrap(
                         direction: Axis.horizontal,
                         spacing: 8,
@@ -1260,9 +1284,9 @@ Future openResult(BuildContext context) async {
                               results[index].contentargtwo,
                               results[index].contentargthree);
                         }))
-                  ]))
+                  ]))),
                 ],
-              )));
+              ));
         });
       });
 
@@ -1367,10 +1391,11 @@ class HomePageState extends State<HomePage> {
                       onPressed: () {
                         openResult(context);
                       },
-                      child: Text('Next',
-                          style: GoogleFonts.newsCycle(
-                              color: Color.fromRGBO(110, 43, 113, 1),
-                              fontSize: 16)),
+                      child: Icon(
+                        Icons.check,
+                        color: Color.fromRGBO(110, 43, 113, 1),
+                        size: 30,
+                      ),
                     ),
                   ])
             ]));
@@ -1597,14 +1622,14 @@ class OnboardingPageState extends State<OnboardingPage> {
       );
     }
 
-    void soundOnboarding(BuildContext context) {
+    void soundOnboarding(BuildContext context) async {
       showDialog(
           context: context,
           builder: (BuildContext context) {
             return StatefulBuilder(
               builder: (context, setState) {
                 return AlertDialog(
-                    title: Text('Record Note', style: dialogHeader),
+                    title: Text('Record Voice Note', style: dialogHeader),
                     content: SingleChildScrollView(
                       child: ListBody(
                         children: <Widget>[
@@ -1645,14 +1670,24 @@ class OnboardingPageState extends State<OnboardingPage> {
                                 ? Text("Stop Recording")
                                 : Text("Start Recording"),
                           ),
+                          SizedBox(height: 10),
+                          TextField(
+                              decoration: InputDecoration(
+                                  fillColor: Colors.grey[300],
+                                  filled: true,
+                                  border: const OutlineInputBorder(),
+                                  hintText: "Voice Note Caption"),
+                              onChanged: (value) {
+                                noteBuffer = value;
+                              }),
                         ],
                       ),
                     ),
                     actions: <Widget>[
                       TextButton(
-                        child: Text('Done', style: dialogBody),
-                        onPressed: () {
-                          stopRecording();
+                        child: Text('Cancel', style: dialogBody),
+                        onPressed: () async {
+                          await record.stop();
                           isRecording = false;
                           setState(() {
                             Navigator.pop(context);
@@ -1710,10 +1745,10 @@ class OnboardingPageState extends State<OnboardingPage> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                            title: Text('Error', style: dialogHeader),
+                            title: Text('🥺', style: dialogHeader),
                             content: SingleChildScrollView(
                                 child: ListBody(children: const <Widget>[
-                              Text("Function Not Ready",
+                              Text("Function Not Ready Yet",
                                   style: TextStyle(color: Colors.white)),
                             ])),
                             actions: <Widget>[
@@ -1877,13 +1912,14 @@ class JournalPageState extends State<JournalPage> {
       entrywidth = MediaQuery.of(context).size.width - 10;
     });
     void deleteLastEntry() {
-      days.removeLast();
-      setState(() {
-        journal.removeLast();
-      });
-
-      ProjectMirrorDatabase.instance.deleteDayDB(dayCounter);
-      dayCounter--;
+      if (dayCounter > 0) {
+        days.removeLast();
+        setState(() {
+          journal.removeLast();
+        });
+        ProjectMirrorDatabase.instance.deleteDayDB(dayCounter);
+        dayCounter--;
+      }
     }
 
     Widget actionMenu() => PopupMenuButton<int>(
@@ -1994,7 +2030,10 @@ class SettingsPageState extends State<SettingsPage> {
             leading: Icon(Icons.lock),
             title: Text("Privacy Policy",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () {},
+            onTap: () {
+              redirectURL(
+                  "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf");
+            },
           ),
           ListTile(
             leading: Icon(Icons.start),
