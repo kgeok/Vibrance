@@ -9,6 +9,7 @@ import 'package:vibrance/data_management.dart';
 import 'package:vibrance/decisions.dart';
 import 'package:vibrance/dialogs.dart';
 import 'package:vibrance/theme/custom_theme.dart';
+import 'package:vibrance/quotes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:record/record.dart';
@@ -23,7 +24,7 @@ void main() async {
   runApp(const MaterialApp(home: MainPage()));
   ProjectMirrorDatabase.instance.initStatefromDB();
   populateFromState();
-  //rssToPodcast("https://feeds.simplecast.com/ozLNkAqI");
+  //https://feeds.simplecast.com/ozLNkAqI
 }
 
 class MainPage extends StatefulWidget {
@@ -1328,7 +1329,16 @@ class HomePageState extends State<HomePage> {
                         color: Colors.white,
                         fontSize: 50,
                       ))),
-              SizedBox(height: 30),
+              SizedBox(height: 10),
+              Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                  child: Text(generateQuote(),
+                      style: GoogleFonts.newsCycle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                      ))),
+              SizedBox(height: 20),
               Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
