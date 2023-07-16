@@ -8,7 +8,6 @@ String generateQuote() {
   Future.delayed(const Duration(seconds: 1));
   Random random = Random();
   int randomBuffer = random.nextInt(quotes.length);
-  print("Quotes ${quotes.length}"); //TODO: remove after
   result =
       "${quotes.values.elementAt(randomBuffer)} - ${quotes.keys.elementAt(randomBuffer)}";
   return result;

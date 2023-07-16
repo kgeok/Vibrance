@@ -11,16 +11,16 @@ They will also be loaded into DB on init */
 
 var pathBuffer = "";
 
-class ProjectMirrorDatabase {
-  static final ProjectMirrorDatabase instance = ProjectMirrorDatabase._init();
+class VibranceDatabase {
+  static final VibranceDatabase instance = VibranceDatabase._init();
 
   static Database? _database;
 
-  ProjectMirrorDatabase._init();
+  VibranceDatabase._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('ProjectMirrorDB.db');
+    _database = await _initDB('VibranceDB.db');
     return _database!;
   }
 

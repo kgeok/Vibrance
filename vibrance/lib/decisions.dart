@@ -8,7 +8,7 @@ import 'package:vibrance/data_management.dart';
 var buffer = [];
 
 Future makeDecisions(BuildContext context) async {
-  final db = await ProjectMirrorDatabase.instance.database;
+  final db = await VibranceDatabase.instance.database;
 
   var counterBuffer = await db.query("Content", columns: ["MAX(id)"]);
   var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
@@ -70,7 +70,7 @@ Future makeDecisions(BuildContext context) async {
                   contentargone: buffer[i].contentargone,
                   contentargtwo: buffer[i].contentargtwo));
               content.add(i);
-              // ProjectMirrorDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
+              // VibranceDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
               break;
           }
         }
@@ -93,7 +93,7 @@ Future makeDecisions(BuildContext context) async {
                   contentargone: buffer[i].contentargone,
                   contentargtwo: buffer[i].contentargtwo));
               content.add(i);
-              // ProjectMirrorDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
+              // VibranceDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
               break;
           }
         }
@@ -109,7 +109,7 @@ Future makeDecisions(BuildContext context) async {
 
 //This is for manual intervention and testing
 Future pullContentData(int id) async {
-  final db = await ProjectMirrorDatabase.instance.database;
+  final db = await VibranceDatabase.instance.database;
 
   var typeBuffer = await db.query("Content", columns: ["type"]);
   var type = typeBuffer[id - 1]["type"].toString();

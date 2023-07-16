@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors, unused_import, prefer_interpolation_to_compose_strings
+
 import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:async';
@@ -12,6 +13,7 @@ import 'package:vibrance/theme/custom_theme.dart';
 import 'package:vibrance/quotes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:spotify/spotify.dart' as spotify;
 import 'package:record/record.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -19,10 +21,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:device_calendar/device_calendar.dart';
 import 'package:webfeed/webfeed.dart';
 import 'package:http/http.dart' as http;
+import 'package:uni_links/uni_links.dart';
 
 void main() async {
   runApp(const MaterialApp(home: MainPage()));
-  ProjectMirrorDatabase.instance.initStatefromDB();
+  VibranceDatabase.instance.initStatefromDB();
   populateFromState();
   //https://feeds.simplecast.com/ozLNkAqI
 }
@@ -36,9 +39,11 @@ class MainPage extends StatefulWidget {
 }
 
 GlobalKey<MyAppState> key = GlobalKey();
-const sku = "Project Mirror";
-const version = "0.3";
-const release = "Prototype";
+const sku = "Vibrance";
+const version = "0.5";
+const release = "Pre-Release";
+const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
+const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
 double currentMood = 1;
 var currentTheme; //Light or Dark theme
 int onboarding = 0;
@@ -66,6 +71,8 @@ double entrywidth = 350;
 Color color = Color(0xFF4A3E7E);
 var backgroundcolor;
 String peptalk = "This one is a good one.";
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 class DayData {
   var dayid;
@@ -143,7 +150,7 @@ Future stopRecording() async {
     }
     noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
     note = noteBuffer;
-    ProjectMirrorDatabase.instance
+    VibranceDatabase.instance
         .updateContentDB("voice", noteBuffer, selectedAudiotoData);
     filebuffer.delete();
     noteBuffer = "";
@@ -268,6 +275,28 @@ Future probeLatestEvents(String name) async {
       }
     }
   }
+}
+
+//Spotify Components
+
+Future authSpotify() async {
+  var responseUri;
+  final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
+  final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
+  const redirectUri = "vibrance://";
+  final scopes = ['user-read-email', 'user-library-read'];
+  final authUri =
+      grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
+  await redirectURL(authUri.toString());
+
+  final getlinksStream = linkStream.listen((String? link) async {
+    if (link!.startsWith(redirectUri)) {
+      responseUri = link;
+    }
+  });
+
+  final spotifyimplementation =
+      spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
 }
 
 void populateFromState() async {
@@ -496,7 +525,7 @@ void journalDialog(BuildContext context, var caption, var mood, var date,
                                                   note = noteBuffer;
                                                   noteBuffer = "";
                                                   Navigator.pop(context);
-                                                  ProjectMirrorDatabase.instance
+                                                  VibranceDatabase.instance
                                                       .updateDaysDB(id, caption,
                                                           note, color);
                                                 },
@@ -544,7 +573,7 @@ void journalDialog(BuildContext context, var caption, var mood, var date,
                                                 onPressed: () {
                                                   Navigator.of(context).pop();
                                                   days.removeAt(id - 1);
-                                                  ProjectMirrorDatabase.instance
+                                                  VibranceDatabase.instance
                                                       .initDBfromState();
                                                   //reenumerateState();
                                                   Navigator.of(context).pop();
@@ -1139,7 +1168,7 @@ void clearContentWarning(BuildContext context) {
             TextButton(
               child: Text('OK', style: dialogBody),
               onPressed: () {
-                ProjectMirrorDatabase.instance.clearContentDB();
+                VibranceDatabase.instance.clearContentDB();
                 Navigator.of(context).pop();
               },
             )
@@ -1152,7 +1181,7 @@ void clearState() {
   journal = [];
   days = [];
   dayCounter = 0;
-  ProjectMirrorDatabase.instance.clearDaysDB();
+  VibranceDatabase.instance.clearDaysDB();
 }
 
 Future startOnboarding(BuildContext context) async {
@@ -1186,13 +1215,30 @@ class MyAppState extends State<MainPage> {
     setState(() {
       journal = [];
     });
-    ProjectMirrorDatabase.instance.initStatefromDB();
+    VibranceDatabase.instance.initStatefromDB();
   }
 
   @override
   initState() {
     super.initState();
     startOnboarding(context);
+    if (release == "Pre-Release") {
+      scaffoldMessengerKey.currentState?.showSnackBar(SnackBar(
+          content: const Text('Pre-Release Version'),
+          duration: Duration(milliseconds: 3000),
+          backgroundColor: Colors.red[800],
+          action: SnackBarAction(
+              label: 'More Info',
+              textColor: Colors.white,
+              onPressed: () {
+                simpleDialog(
+                    context,
+                    "Pre-Release Version",
+                    "Confidential and Proprietary, Please Don't Share Information or Screenshots",
+                    "Please Report any Bugs and Crashes, Take note of what you were doing when they occurred.",
+                    "error");
+              })));
+    }
   }
 
   @override
@@ -1298,7 +1344,7 @@ Future openResult(BuildContext context) async {
       daynote: "",
       dayid: dayCounter,
       daycaption: ""));
-  ProjectMirrorDatabase.instance
+  VibranceDatabase.instance
       .addDayDB(dayCounter, date, currentMood, color, note);
 }
 
@@ -1485,45 +1531,77 @@ class OnboardingPageState extends State<OnboardingPage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-              title: Text('Enter Podcast RSS URL', style: dialogHeader),
+              title: Text('Choose Provider', style: dialogHeader),
               content: SingleChildScrollView(
-                child: ListBody(
-                  children: <Widget>[
-                    TextField(
-                        autofocus: true,
-                        keyboardType: TextInputType.multiline,
-                        minLines: 1,
-                        maxLines: 1,
-                        decoration: InputDecoration(
-                            fillColor: Colors.grey[300],
-                            filled: true,
-                            border: const OutlineInputBorder(),
-                            hintText: "Podcast RSS URL"),
-                        onChanged: (value) {
-                          setState(() {
-                            textBuffer = value;
-                          });
-                        }),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: Text('Cancel', style: dialogBody),
+                  child: ListBody(children: <Widget>[
+                SimpleDialogOption(
                   onPressed: () {
                     Navigator.of(context).pop();
+                    authSpotify();
                   },
+                  child: Text('Spotify', style: dialogBody),
                 ),
+                SimpleDialogOption(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                            title: Text('Enter Podcast RSS URL',
+                                style: dialogHeader),
+                            content: SingleChildScrollView(
+                              child: ListBody(
+                                children: <Widget>[
+                                  TextField(
+                                      autofocus: true,
+                                      keyboardType: TextInputType.multiline,
+                                      minLines: 1,
+                                      maxLines: 1,
+                                      decoration: InputDecoration(
+                                          fillColor: Colors.grey[300],
+                                          filled: true,
+                                          border: const OutlineInputBorder(),
+                                          hintText: "Podcast RSS URL"),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          textBuffer = value;
+                                        });
+                                      }),
+                                ],
+                              ),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text('Cancel', style: dialogBody),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                              TextButton(
+                                child: Text('OK', style: dialogBody),
+                                onPressed: () {
+                                  setState(() {
+                                    if (textBuffer == "") {}
+                                    if (textBuffer == null) {}
+                                    VibranceDatabase.instance.updateContentDB(
+                                        "podcast", textBuffer, "");
+                                    Navigator.pop(context);
+                                  });
+                                },
+                              )
+                            ]);
+                      },
+                    );
+                  },
+                  child: Text('RSS URL', style: dialogBody),
+                ),
+              ])),
+              actions: <Widget>[
                 TextButton(
                   child: Text('OK', style: dialogBody),
                   onPressed: () {
-                    setState(() {
-                      if (textBuffer == "") {}
-                      if (textBuffer == null) {}
-                      ProjectMirrorDatabase.instance
-                          .updateContentDB("podcast", textBuffer, "");
-                      Navigator.pop(context);
-                    });
+                    Navigator.pop(context);
                   },
                 )
               ]);
@@ -1543,7 +1621,7 @@ class OnboardingPageState extends State<OnboardingPage> {
         return List<Widget>.generate(allCalendarsBuffer.length, (int index) {
           return SimpleDialogOption(
               onPressed: () {
-                ProjectMirrorDatabase.instance.updateContentDB(
+                VibranceDatabase.instance.updateContentDB(
                     "event", allCalendarsBuffer[index].name, "");
                 Navigator.pop(context);
               },
@@ -1570,7 +1648,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   child: Text('OK', style: dialogBody),
                   onPressed: () {
                     setState(() {
-                      ProjectMirrorDatabase.instance
+                      VibranceDatabase.instance
                           .updateContentDB("text", textBuffer, "");
                       Navigator.pop(context);
                     });
@@ -1621,7 +1699,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                     setState(() {
                       if (textBuffer == "") {}
                       if (textBuffer == null) {}
-                      ProjectMirrorDatabase.instance
+                      VibranceDatabase.instance
                           .updateContentDB("text", textBuffer, "");
                       Navigator.pop(context);
                     });
@@ -1717,7 +1795,7 @@ class OnboardingPageState extends State<OnboardingPage> {
       print(selectedPhoto.toString());
       if (selectedPhoto != null) {
         selectedPhotoToData = await selectedPhoto.readAsBytes();
-        ProjectMirrorDatabase.instance
+        VibranceDatabase.instance
             .updateContentDB("photo", "", selectedPhotoToData);
       }
     }
@@ -1755,11 +1833,16 @@ class OnboardingPageState extends State<OnboardingPage> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                            title: Text('🥺', style: dialogHeader),
+                            title: Text('Choose Provider', style: dialogHeader),
                             content: SingleChildScrollView(
-                                child: ListBody(children: const <Widget>[
-                              Text("Function Not Ready Yet",
-                                  style: TextStyle(color: Colors.white)),
+                                child: ListBody(children: <Widget>[
+                              SimpleDialogOption(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  authSpotify();
+                                },
+                                child: Text('Spotify', style: dialogBody),
+                              ),
                             ])),
                             actions: <Widget>[
                               TextButton(
@@ -1927,7 +2010,7 @@ class JournalPageState extends State<JournalPage> {
         setState(() {
           journal.removeLast();
         });
-        ProjectMirrorDatabase.instance.deleteDayDB(dayCounter);
+        VibranceDatabase.instance.deleteDayDB(dayCounter);
         dayCounter--;
       }
     }
@@ -2011,6 +2094,7 @@ class SettingsPageState extends State<SettingsPage> {
                     style: GoogleFonts.newsCycle(color: Colors.black)),
                 subtitle: Text("http://kgeok.github.io/",
                     style: GoogleFonts.newsCycle(color: Colors.grey)),
+                onTap: () => redirectURL("https://kgeok.github.io"),
               ),
             ],
           )),
@@ -2040,10 +2124,8 @@ class SettingsPageState extends State<SettingsPage> {
             leading: Icon(Icons.lock),
             title: Text("Privacy Policy",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () {
-              redirectURL(
-                  "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf");
-            },
+            onTap: () => redirectURL(
+                "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
           ),
           ListTile(
             leading: Icon(Icons.start),
