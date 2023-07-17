@@ -71,6 +71,7 @@ double entrywidth = 350;
 Color color = Color(0xFF4A3E7E);
 var backgroundcolor;
 String peptalk = "This one is a good one.";
+
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
@@ -113,6 +114,12 @@ class ContentData {
 
 Future<void> redirectURL(String url) async {
   if (!await launchUrl(Uri.parse(url))) {
+    throw "Error launching link";
+  }
+}
+
+Future<void> redirectURLtwo(Uri url) async {
+  if (!await launchUrl(url)) {
     throw "Error launching link";
   }
 }
@@ -279,24 +286,31 @@ Future probeLatestEvents(String name) async {
 
 //Spotify Components
 
-Future authSpotify() async {
+void authSpotify() {
   var responseUri;
   final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
   final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
-  const redirectUri = "vibrance://";
+  const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/";
   final scopes = ['user-read-email', 'user-library-read'];
   final authUri =
       grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
-  await redirectURL(authUri.toString());
 
-  final getlinksStream = linkStream.listen((String? link) async {
-    if (link!.startsWith(redirectUri)) {
-      responseUri = link;
-    }
-  });
-
-  final spotifyimplementation =
-      spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
+  final callback = linkStream.listen(
+    (String? link) {
+      print("Listening...");
+      if (link != null) {
+        print("Listening...");
+        if (link.startsWith(redirectUri)) {
+          responseUri = link;
+          final spotifyImplementation =
+              spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
+          print(responseUri);
+        }
+      }
+    },
+    onError: (error) => print(error),
+  );
+  redirectURLtwo(authUri);
 }
 
 void populateFromState() async {
