@@ -18,6 +18,9 @@ Future makeDecisions(BuildContext context) async {
     var typeBuffer = await db.query("Content", columns: ["type"]);
     var type = typeBuffer[i]["type"].toString();
 
+    var subtypeBuffer = await db.query("Content", columns: ["subtype"]);
+    var subtype = subtypeBuffer[i]["subtype"].toString();
+
     var argoneBuffer = await db.query("Content", columns: ["text"]);
     var argone = argoneBuffer[i]["text"].toString();
 
@@ -32,6 +35,7 @@ Future makeDecisions(BuildContext context) async {
     buffer.add(ContentData(
         contentid: i,
         contenttype: type,
+        contentsubtype: subtype,
         contentargone: argone,
         contentargtwo: argtwo,
         contentweight: weight));
@@ -43,6 +47,7 @@ Future makeDecisions(BuildContext context) async {
     results.add(ContentData(
         contentid: 1,
         contenttype: "default",
+        contentsubtype: "default",
         contentargone: "No Content",
         contentargtwo: "Go to Settings to add content."));
     content.add(0);
@@ -56,7 +61,12 @@ Future makeDecisions(BuildContext context) async {
         for (int i = 0; i <= buffer.length - 1; i++) {
           switch (buffer[i].contenttype) {
             case "podcast":
-              probeLatestPodcast(buffer[i].contentargone);
+              if (buffer[i].contentsubtype == "rss") {
+                probeLatestPodcastRSS(buffer[i].contentargone);
+              } else if (buffer[i].contentsubtype == "spotify") {
+                probeLatestPodcastSpotify(buffer[i].contentargtwo);
+              }
+
               break;
 
             case "event":
@@ -67,6 +77,7 @@ Future makeDecisions(BuildContext context) async {
               results.add(ContentData(
                   contentid: buffer[i].contentid,
                   contenttype: buffer[i].contenttype,
+                  contentsubtype: buffer[i].contentsubtype,
                   contentargone: buffer[i].contentargone,
                   contentargtwo: buffer[i].contentargtwo));
               content.add(i);
@@ -79,7 +90,11 @@ Future makeDecisions(BuildContext context) async {
         for (int i = 0; i < 6; i++) {
           switch (buffer[i].contenttype) {
             case "podcast":
-              probeLatestPodcast(buffer[i].contentargone);
+              if (buffer[i].contentsubtype == "rss") {
+                probeLatestPodcastRSS(buffer[i].contentargone);
+              } else if (buffer[i].contentsubtype == "spotify") {
+                probeLatestPodcastSpotify(buffer[i].contentargtwo);
+              }
               break;
 
             case "event":

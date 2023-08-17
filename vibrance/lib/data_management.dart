@@ -37,10 +37,13 @@ class VibranceDatabase {
 
   Future createDB(Database db, int version) async {
     db.execute(
-        'CREATE TABLE Content (id INTEGER, type TEXT, date TEXT, text MEDIUMTEXT, raw LONGBLOB, weight INT)');
+        'CREATE TABLE Content (id INTEGER, type TEXT, subtype TEXT, date TEXT, text MEDIUMTEXT, raw LONGBLOB, weight INT)');
     //db.execute('CREATE TABLE Prefs ()');
     db.execute(
         'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, color TEXT, notes MEDIUMTEXT)');
+
+    db.execute(
+        'CREATE TABLE Configuration (id INTEGER, service MEDIUMTEXT, dataone MEDIUMTEXT, datatwo MEDIUMTEXT, datathree MEDIUMTEXT, datafour MEDIUMTEXT, datafive MEDIUMTEXT)');
 
     print("DB Made!");
     onboarding = 1;
@@ -124,7 +127,7 @@ class VibranceDatabase {
 
   Future updateDaysDB(var id, var caption, var note, var color) async {}
 
-  Future updateContentDB(var type, var text, var raw) async {
+  Future updateContentDB(var type, var subtype, var text, var raw) async {
     final db = await instance.database;
 
     var counterBuffer = await db.query("Content", columns: ["MAX(id)"]);
@@ -134,8 +137,8 @@ class VibranceDatabase {
     const weight = 3;
 
     db.rawInsert(
-        'INSERT INTO Content (id, type, date, text, raw, weight) VALUES(?, ?, ?, ?, ?, ?)',
-        [counter, type, date, text, raw, weight]);
+        'INSERT INTO Content (id, type, subtype, date, text, raw, weight) VALUES(?, ?, ?, ?, ?, ?, ?)',
+        [counter, type, subtype, date, text, raw, weight]);
   }
 
   Future updateWeight(var id, var weight) async {
@@ -182,5 +185,63 @@ class VibranceDatabase {
     final db = await instance.database;
     db.query("Days");
     db.execute("DELETE FROM Days WHERE id = $id");
+  }
+
+  Future addService(
+      id, service, dataone, datatwo, datathree, datafour, datafive) async {
+    final db = await instance.database;
+    db.rawInsert(
+        'INSERT INTO Configuration (id, service, dataone, datatwo, datathree, datafour, datafive) VALUES(?, ?, ?, ?, ?, ?, ?)',
+        [
+          '$id',
+          '$service',
+          '$dataone',
+          '$datatwo',
+          '$datathree',
+          '$datafour',
+          '$datafive'
+        ]);
+  }
+
+  Future removeService(service) async {
+    final db = await instance.database;
+    db.query("Configuration");
+    db.execute("DELETE FROM Configuration WHERE service = $service");
+  }
+
+  Future removeAllServices() async {
+    final db = await instance.database;
+    db.query("Configuration");
+    db.delete("Configuration");
+  }
+
+  Future provideServiceData() async {
+    final db = await instance.database;
+    var counterBuffer = await db.query("Configuration", columns: ["MAX(id)"]);
+    var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
+    counter ??= 0;
+
+    for (var i = 0; i <= counter - 1; i++) {
+      var servicenameBuffer =
+          await db.query("Configuration", columns: ["service"]);
+      var servicename = servicenameBuffer[i]["service"].toString();
+
+      var dataoneBuffer = await db.query("Configuration", columns: ["dataone"]);
+      var dataone = dataoneBuffer[i]["dataone"].toString();
+      var datatwoBuffer = await db.query("Configuration", columns: ["datatwo"]);
+      var datatwo = datatwoBuffer[i]["datatwo"].toString();
+      var datathreeBuffer =
+          await db.query("Configuration", columns: ["datathree"]);
+      var datathree = datathreeBuffer[i]["datathree"].toString();
+      var datafourBuffer =
+          await db.query("Configuration", columns: ["datafour"]);
+      var datafour = datafourBuffer[i]["datafour"].toString();
+      var datafiveBuffer =
+          await db.query("Configuration", columns: ["datafive"]);
+      var datafive = datafiveBuffer[i]["datafive"].toString();
+
+      services.add(ServiceData(
+          i, servicename, dataone, datatwo, datathree, datafour, datafive));
+    }
   }
 }

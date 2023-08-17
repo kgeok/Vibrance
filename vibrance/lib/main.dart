@@ -1,5 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors, unused_import, prefer_interpolation_to_compose_strings
-
+// ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors, unused_import, prefer_interpolation_to_compose_strings, unused_local_variable
 import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:async';
@@ -21,7 +20,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:device_calendar/device_calendar.dart';
 import 'package:webfeed/webfeed.dart';
 import 'package:http/http.dart' as http;
-import 'package:uni_links/uni_links.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 void main() async {
   runApp(const MaterialApp(home: MainPage()));
@@ -49,9 +48,11 @@ var currentTheme; //Light or Dark theme
 int onboarding = 0;
 var days = [];
 var results = [];
+var services = [];
 List<int> journal = [];
 List<int> content = [];
 DateTime currentDate = DateTime.now();
+var spotifyApp;
 final record = Record();
 final photo = ImagePicker();
 final event = Calendar();
@@ -95,6 +96,7 @@ class DayData {
 class ContentData {
   var contentid;
   late var contenttype;
+  late var contentsubtype;
   late var contentdate;
   late var contentcaption;
   late var contentargone;
@@ -105,6 +107,7 @@ class ContentData {
   ContentData(
       {this.contentid,
       required this.contenttype,
+      this.contentsubtype,
       this.contentcaption,
       this.contentargone,
       this.contentargtwo,
@@ -112,14 +115,21 @@ class ContentData {
       this.contentweight});
 }
 
-Future<void> redirectURL(String url) async {
-  if (!await launchUrl(Uri.parse(url))) {
-    throw "Error launching link";
-  }
+class ServiceData {
+  var serviceid;
+  late var servicename;
+  late var dataone;
+  late var datatwo;
+  late var datathree;
+  late var datafour;
+  late var datafive;
+
+  ServiceData(this.serviceid, this.servicename, this.dataone, this.datatwo,
+      this.datathree, this.datafour, this.datafive);
 }
 
-Future<void> redirectURLtwo(Uri url) async {
-  if (!await launchUrl(url)) {
+Future<void> redirectURL(String url) async {
+  if (!await launchUrl(Uri.parse(url))) {
     throw "Error launching link";
   }
 }
@@ -158,7 +168,7 @@ Future stopRecording() async {
     noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
     note = noteBuffer;
     VibranceDatabase.instance
-        .updateContentDB("voice", noteBuffer, selectedAudiotoData);
+        .updateContentDB("voice", "", noteBuffer, selectedAudiotoData);
     filebuffer.delete();
     noteBuffer = "";
   }
@@ -227,9 +237,71 @@ Future addContent() async {
   content.add(0);
 }
 
+Future authenticateSpotify(BuildContext context) async {
+  //This is the provider for logging into Spotify
+  var responseUri;
+  final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
+  final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
+  const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/";
+  final scopes = ['user-read-email', 'user-library-read'];
+  final authUri =
+      grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
+
+  var controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (NavigationRequest request) async {
+          if (request.url.startsWith(redirectUri)) {
+            responseUri = request.url;
+            print("Got: $responseUri");
+            spotifyApp =
+                spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
+            var credentials = await spotifyApp.getCredentials();
+            VibranceDatabase.instance.addService(
+                1,
+                "spotify",
+                credentials.accessToken,
+                credentials.refreshToken,
+                credentials.scopes,
+                credentials.expiration,
+                ""); //TODO Fix this
+          }
+          return NavigationDecision.navigate;
+        },
+      ),
+    )
+    ..loadRequest(Uri.parse(authUri.toString()));
+
+  showModalBottomSheet(
+      backgroundColor: lightMode,
+      context: context,
+      enableDrag: false,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      builder: (BuildContext context) {
+        return FractionallySizedBox(
+            heightFactor: 0.9,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  IconButton(
+                      onPressed: () {
+                        Navigator.of(context, rootNavigator: true).pop();
+                      },
+                      icon: Icon(
+                        Icons.close,
+                        color: Colors.white,
+                      )),
+                  Expanded(child: WebViewWidget(controller: controller)),
+                ]));
+      });
+}
+
 //Podcast Components
 
-Future probeLatestPodcast(String url) async {
+Future probeLatestPodcastRSS(String url) async {
   var rssfeed = await client.get(Uri.parse(url));
   var content = RssFeed.parse(rssfeed.body);
   print(content.title);
@@ -239,11 +311,34 @@ Future probeLatestPodcast(String url) async {
 
   results.add(ContentData(
       contenttype: "podcast",
+      contentsubtype: "rss",
       contentargone: (content.title).toString(),
       contentargtwo: (latestitem.title).toString(),
       contentargthree: (latestitem.pubDate).toString()));
 
   addContent();
+}
+
+Future probeLatestPodcastSpotify(String id) async {
+  //await invokeSpotify(context);
+  if (spotifyApp != null) {
+    //Because Show title isn't coming from the episode we will take it out seperately
+    var show = await spotifyApp.shows.get(id);
+    var episode = spotifyApp.shows.episodes(id);
+    var latestitem = (await episode.first()).items!.first;
+    print(show.name);
+    print(latestitem.name);
+    results.add(ContentData(
+        contenttype: "podcast",
+        contentsubtype: "spotify",
+        contentargone: (show.name).toString(),
+        contentargtwo: (latestitem.name).toString(),
+        contentargthree: (latestitem.releaseDate).toString()));
+
+    addContent();
+  } else {
+    print("Spotify not Ready...");
+  }
 }
 
 //Events Components
@@ -282,35 +377,6 @@ Future probeLatestEvents(String name) async {
       }
     }
   }
-}
-
-//Spotify Components
-
-void authSpotify() {
-  var responseUri;
-  final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
-  final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
-  const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/";
-  final scopes = ['user-read-email', 'user-library-read'];
-  final authUri =
-      grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
-
-  final callback = linkStream.listen(
-    (String? link) {
-      print("Listening...");
-      if (link != null) {
-        print("Listening...");
-        if (link.startsWith(redirectUri)) {
-          responseUri = link;
-          final spotifyImplementation =
-              spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
-          print(responseUri);
-        }
-      }
-    },
-    onError: (error) => print(error),
-  );
-  redirectURLtwo(authUri);
 }
 
 void populateFromState() async {
@@ -683,7 +749,7 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                        Text("Music",
+                        Text(argone,
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
@@ -692,7 +758,7 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 16)),
-                        Text("Music",
+                        Text(argtwo,
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
@@ -1191,6 +1257,44 @@ void clearContentWarning(BuildContext context) {
   );
 }
 
+void clearServicesWarning(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+          backgroundColor: Colors.orange[800],
+          title: Text("Log Out?", style: dialogHeader),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text("Are you sure you want to log out of all services?",
+                    style: dialogBody),
+                Text("(You will need to log back in later.)",
+                    style: dialogBody),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel', style: dialogBody),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('OK', style: dialogBody),
+              onPressed: () {
+                VibranceDatabase.instance.removeAllServices();
+                services.clear();
+                spotifyApp = null;
+                Navigator.of(context).pop();
+              },
+            )
+          ]);
+    },
+  );
+}
+
 void clearState() {
   journal = [];
   days = [];
@@ -1281,6 +1385,59 @@ class MyAppState extends State<MainPage> {
                   }))),
           body: SafeArea(child: pages.elementAt(pageIndex)),
         ));
+  }
+}
+
+Future invokeSpotify(BuildContext context) async {
+  //Let's grab the Services data from the DB and put it into our ServiceData object based List
+  await VibranceDatabase.instance.provideServiceData();
+  //Let's find out which item in the list is the Spotify Cred Data...
+  var spotifyindex =
+      services.indexWhere((item) => (item.servicename) == "spotify");
+  //If the result is not empty, which is considered a -1 index result, we can move forward
+  if (spotifyindex != -1) {
+    //We don't want this leaking out during Prod usage
+    if (release == "Pre-Release") {
+      print(spotifyindex);
+      print(services[spotifyindex].servicename);
+      print(services[spotifyindex].dataone);
+      print(services[spotifyindex].datatwo);
+      print(services[spotifyindex].datathree);
+      print(services[spotifyindex].datafour);
+    }
+    final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid,
+        accessToken: services[spotifyindex].dataone,
+        refreshToken: services[spotifyindex].datatwo,
+        scopes: ['user-read-email', 'user-library-read'],
+        expiration: DateTime.parse(services[spotifyindex].datafour));
+    //We need to check if the refresh token date is expired...
+    if ((DateTime.now())
+        .isBefore(DateTime.parse(services[spotifyindex].datafour))) {
+      spotifyApp = spotify.SpotifyApi(credentials);
+    } else {
+      //Token Refresh
+      //Remove whatever is in the DB, refresh and then dump in the new data
+
+      spotify.SpotifyApi api = spotify.SpotifyApi(credentials,
+          onCredentialsRefreshed:
+              (spotify.SpotifyApiCredentials newCred) async {
+        print("Getting new Spotify OAuth Refresh Token...");
+        VibranceDatabase.instance.removeAllServices();
+        services.removeWhere((item) => (item.servicename) == "spotify");
+        //VibranceDatabase.instance.removeService("Spotify"); //TODO: Throwing somekind of error, remove the delete all services test and fix this one
+        await VibranceDatabase.instance.addService(
+            1,
+            "spotify",
+            newCred.accessToken.toString(),
+            newCred.refreshToken.toString(),
+            newCred.scopes.toString(),
+            newCred.expiration.toString(),
+            ""); //TODO Fix this
+      });
+      invokeSpotify(context);
+    }
+  } else {
+    authenticateSpotify(context);
   }
 }
 
@@ -1540,7 +1697,159 @@ class OnboardingPage extends StatefulWidget {
 class OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
-    void podcastOnboarding() {
+    //Spotify Components
+
+    Future spotifyData(datatype) async {
+      var result;
+      var searchResults = [];
+
+      Future pickSpotifyData(item) async {
+        //Dialog where we actually pick our songs or podcasts
+
+        switch (item) {
+          //Music Components
+          case "Songs":
+            result = await spotifyApp.me.topTracks();
+            print(result.items);
+            result.items?.forEach((item) => searchResults.add(ContentData(
+                contentid: item.id,
+                contenttype: "music",
+                contentcaption: item.name,
+                contentargone: item.artists,
+                contentargtwo: item.name,
+                contentargthree: item.uri)));
+            break;
+          case "Albums":
+            result = await spotifyApp.me.savedAlbums().getPage(10, 0);
+            print(result.items);
+            result.items?.forEach((item) => searchResults.add(ContentData(
+                contentid: item.id,
+                contenttype: "music",
+                contentcaption: item.name,
+                contentargone: item.artists,
+                contentargtwo: item.releaseDate,
+                contentargthree: item.uri)));
+            break;
+          case "Artists":
+            result = await spotifyApp.me.topArtists();
+            print(result);
+
+            break;
+
+          //Podcast Components
+          case "Shows":
+            result = await spotifyApp.me.savedShows().getPage(10, 0);
+            print(result.items);
+            result.items?.forEach((item) => searchResults.add(ContentData(
+                contentid: item.id,
+                contenttype: "podcast",
+                contentcaption: item.name,
+                contentargone: item.publisher,
+                contentargtwo: item.description,
+                contentargthree: item.uri)));
+            break;
+        }
+
+        List<Widget> spotifyItemList(BuildContext context) {
+          return List<Widget>.generate(result.items.length, (int index) {
+            return SimpleDialogOption(
+                onPressed: () {
+                  VibranceDatabase.instance.updateContentDB(
+                      searchResults[index].contenttype,
+                      "spotify",
+                      searchResults[index].contentcaption,
+                      searchResults[index].contentid);
+                  Navigator.pop(context);
+                },
+                child: Text(searchResults[index].contentcaption,
+                    style: GoogleFonts.newsCycle(
+                      fontWeight: FontWeight.w600,
+                      color: color.computeLuminance() > 0.5
+                          ? Colors.black
+                          : Colors.white,
+                    )));
+          });
+        }
+
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+                title: Text('Select $item', style: dialogHeader),
+                content: SingleChildScrollView(
+                  child: ListBody(children: spotifyItemList(context)),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    child: Text('OK', style: dialogBody),
+                    onPressed: () {
+                      setState(() {
+                        Navigator.pop(context);
+                      });
+                    },
+                  )
+                ]);
+          },
+        );
+      }
+
+      switch (datatype) {
+        case "music":
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                  title: Text('Select Option', style: dialogHeader),
+                  content: SingleChildScrollView(
+                    child: ListBody(children: [
+                      SimpleDialogOption(
+                        onPressed: () {
+                          pickSpotifyData("Songs");
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('Songs', style: dialogBody),
+                      ),
+                      SimpleDialogOption(
+                        onPressed: () {
+                          pickSpotifyData("Albums");
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('Albums', style: dialogBody),
+                      ),
+                      SimpleDialogOption(
+                        onPressed: () {
+                          pickSpotifyData("Artists");
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('Artists', style: dialogBody),
+                      ),
+                    ]),
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      child: Text('OK', style: dialogBody),
+                      onPressed: () {
+                        setState(() {
+                          Navigator.pop(context);
+                        });
+                      },
+                    )
+                  ]);
+            },
+          );
+
+          break;
+
+        case "podcasts":
+          pickSpotifyData("Shows");
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    Future podcastOnboarding() async {
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -1549,9 +1858,12 @@ class OnboardingPageState extends State<OnboardingPage> {
               content: SingleChildScrollView(
                   child: ListBody(children: <Widget>[
                 SimpleDialogOption(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.of(context).pop();
-                    authSpotify();
+                    await invokeSpotify(context);
+                    if (spotifyApp != null) {
+                      spotifyData("podcasts");
+                    }
                   },
                   child: Text('Spotify', style: dialogBody),
                 ),
@@ -1599,7 +1911,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                                     if (textBuffer == "") {}
                                     if (textBuffer == null) {}
                                     VibranceDatabase.instance.updateContentDB(
-                                        "podcast", textBuffer, "");
+                                        "podcast", "rss", textBuffer, "");
                                     Navigator.pop(context);
                                   });
                                 },
@@ -1623,7 +1935,7 @@ class OnboardingPageState extends State<OnboardingPage> {
       );
     }
 
-    void eventOnboarding() async {
+    Future eventOnboarding() async {
       //Because allCalendars is locked, lets make a buffer to store the data that we can touch
       allCalendars = await deviceCalendarPlugin.requestPermissions();
       allCalendars = await deviceCalendarPlugin.retrieveCalendars();
@@ -1636,7 +1948,7 @@ class OnboardingPageState extends State<OnboardingPage> {
           return SimpleDialogOption(
               onPressed: () {
                 VibranceDatabase.instance.updateContentDB(
-                    "event", allCalendarsBuffer[index].name, "");
+                    "event", "", allCalendarsBuffer[index].name, "");
                 Navigator.pop(context);
               },
               child: Text(allCalendarsBuffer[index].name,
@@ -1663,7 +1975,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   onPressed: () {
                     setState(() {
                       VibranceDatabase.instance
-                          .updateContentDB("text", textBuffer, "");
+                          .updateContentDB("text", "", textBuffer, "");
                       Navigator.pop(context);
                     });
                   },
@@ -1673,7 +1985,7 @@ class OnboardingPageState extends State<OnboardingPage> {
       );
     }
 
-    void textOnboarding(BuildContext context) {
+    Future textOnboarding(BuildContext context) async {
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -1714,7 +2026,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                       if (textBuffer == "") {}
                       if (textBuffer == null) {}
                       VibranceDatabase.instance
-                          .updateContentDB("text", textBuffer, "");
+                          .updateContentDB("text", "", textBuffer, "");
                       Navigator.pop(context);
                     });
                   },
@@ -1724,7 +2036,7 @@ class OnboardingPageState extends State<OnboardingPage> {
       );
     }
 
-    void soundOnboarding(BuildContext context) async {
+    Future soundOnboarding(BuildContext context) async {
       showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -1802,7 +2114,7 @@ class OnboardingPageState extends State<OnboardingPage> {
           });
     }
 
-    void photoOnboarding(BuildContext context) async {
+    Future photoOnboarding(BuildContext context) async {
       final selectedPhotoToData;
       final XFile? selectedPhoto =
           await photo.pickImage(source: ImageSource.gallery);
@@ -1810,7 +2122,7 @@ class OnboardingPageState extends State<OnboardingPage> {
       if (selectedPhoto != null) {
         selectedPhotoToData = await selectedPhoto.readAsBytes();
         VibranceDatabase.instance
-            .updateContentDB("photo", "", selectedPhotoToData);
+            .updateContentDB("photo", "", "", selectedPhotoToData);
       }
     }
 
@@ -1853,7 +2165,10 @@ class OnboardingPageState extends State<OnboardingPage> {
                               SimpleDialogOption(
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  authSpotify();
+                                  invokeSpotify(context);
+                                  if (spotifyApp != null) {
+                                    spotifyData("music");
+                                  }
                                 },
                                 child: Text('Spotify', style: dialogBody),
                               ),
@@ -2167,6 +2482,18 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text("Reset Journal",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => clearDaysWarning(context),
+          ),
+          ListTile(
+            leading: Icon(Icons.supervised_user_circle_sharp),
+            title: Text("Log Out of All Services",
+                style: GoogleFonts.newsCycle(color: Colors.red)),
+            onTap: () => clearServicesWarning(context),
+          ),
+          ListTile(
+            leading: Icon(Icons.settings_applications),
+            title: Text("Test Button",
+                style: GoogleFonts.newsCycle(color: Colors.yellow[900])),
+            onTap: () => invokeSpotify(context),
           ),
         ],
       )),
