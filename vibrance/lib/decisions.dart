@@ -10,105 +10,122 @@ var buffer = [];
 Future makeDecisions(BuildContext context) async {
   final db = await VibranceDatabase.instance.database;
 
-  var counterBuffer = await db.query("Content", columns: ["MAX(id)"]);
+  var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
   var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
   counter ??= 0;
-  print("Making decisions to display content...");
+  print("Making decisions to display Memories...");
   for (var i = 0; i <= counter - 1; i++) {
-    var typeBuffer = await db.query("Content", columns: ["type"]);
+    var typeBuffer = await db.query("Memories", columns: ["type"]);
     var type = typeBuffer[i]["type"].toString();
 
-    var subtypeBuffer = await db.query("Content", columns: ["subtype"]);
+    var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
     var subtype = subtypeBuffer[i]["subtype"].toString();
 
-    var argoneBuffer = await db.query("Content", columns: ["text"]);
-    var argone = argoneBuffer[i]["text"].toString();
+    var providerBuffer = await db.query("Memories", columns: ["provider"]);
+    var provider = providerBuffer[i]["provider"].toString();
 
-    var argtwoBuffer = await db.query("Content", columns: ["raw"]);
-    var argtwo = argtwoBuffer[i]["raw"];
+    var captionBuffer = await db.query("Memories", columns: ["text"]);
+    var caption = captionBuffer[i]["text"].toString();
 
-    var weightBuffer = await db.query("Content", columns: ["weight"]);
+    var argoneBuffer = await db.query("Memories", columns: ["raw"]);
+    var argone = argoneBuffer[i]["raw"];
+
+    var weightBuffer = await db.query("Memories", columns: ["weight"]);
     var weight = weightBuffer[i]["weight"];
 
     //We use a new buffer since it's not hooked to anything
 
-    buffer.add(ContentData(
-        contentid: i,
-        contenttype: type,
-        contentsubtype: subtype,
-        contentargone: argone,
-        contentargtwo: argtwo,
-        contentweight: weight));
+    buffer.add(MemoriesData(
+        memoriesid: i,
+        memoriescaption: caption,
+        memoriestype: type,
+        memoriessubtype: subtype,
+        memoriesprovider: provider,
+        memoriesargone: argone,
+        memoriesargtwo: "",
+        memoriesweight: weight));
   }
   //print(buffer.length);
 
   if (buffer.isEmpty) {
     print("We have nothing to work with...");
-    results.add(ContentData(
-        contentid: 1,
-        contenttype: "default",
-        contentsubtype: "default",
-        contentargone: "No Content",
-        contentargtwo: "Go to Settings to add content."));
-    content.add(0);
+    results.add(MemoriesData(
+        memoriesid: 1,
+        memoriescaption: "No Memories",
+        memoriestype: "default",
+        memoriessubtype: "default",
+        memoriesprovider: "system",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: ""));
+    memories.add(0);
   } else {
-    if (buffer.every((element) => element.contentweight == 3)) {
+    if (buffer.every((element) => element.memoriesweight == 3)) {
       print("Everything is weight of 3, using first couple of elements...");
 
       if (buffer.length < 6) {
         print(
-            "We don't have enough content to populate a full list...using whatever we have...");
+            "We don't have enough Memories to populate a full list...using whatever we have...");
         for (int i = 0; i <= buffer.length - 1; i++) {
-          switch (buffer[i].contenttype) {
+          switch (buffer[i].memoriestype) {
             case "podcast":
-              if (buffer[i].contentsubtype == "rss") {
-                probeLatestPodcastRSS(buffer[i].contentargone);
-              } else if (buffer[i].contentsubtype == "spotify") {
-                probeLatestPodcastSpotify(buffer[i].contentargtwo);
+              if (buffer[i].memoriesprovider == "rss") {
+                probeLatestPodcastRSS(buffer[i].memoriescaption);
+              } else if (buffer[i].memoriesprovider == "spotify") {
+                if (!context.mounted) return;
+                await invokeSpotify(context);
+                probeLatestPodcastSpotify(buffer[i].memoriesargone);
               }
 
               break;
 
             case "event":
-              probeLatestEvents(buffer[i].contentargone);
+              probeLatestEvents(buffer[i].memoriescaption);
               break;
 
             default:
-              results.add(ContentData(
-                  contentid: buffer[i].contentid,
-                  contenttype: buffer[i].contenttype,
-                  contentsubtype: buffer[i].contentsubtype,
-                  contentargone: buffer[i].contentargone,
-                  contentargtwo: buffer[i].contentargtwo));
-              content.add(i);
-              // VibranceDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
+              results.add(MemoriesData(
+                  memoriesid: buffer[i].memoriesid,
+                  memoriescaption: buffer[i].memoriescaption,
+                  memoriestype: buffer[i].memoriestype,
+                  memoriessubtype: buffer[i].memoriessubtype,
+                  memoriesprovider: buffer[i].memoriesprovider,
+                  memoriesargone: buffer[i].memoriesargone,
+                  memoriesargtwo: buffer[i].memoriesargtwo));
+              memories.add(i);
+
               break;
           }
         }
       } else {
         print("We have plenty of data to work with... populating 6 entries");
         for (int i = 0; i < 6; i++) {
-          switch (buffer[i].contenttype) {
+          switch (buffer[i].memoriestype) {
             case "podcast":
-              if (buffer[i].contentsubtype == "rss") {
-                probeLatestPodcastRSS(buffer[i].contentargone);
-              } else if (buffer[i].contentsubtype == "spotify") {
-                probeLatestPodcastSpotify(buffer[i].contentargtwo);
+              if (buffer[i].memoriesprovider == "rss") {
+                probeLatestPodcastRSS(buffer[i].memoriescaption);
+              } else if (buffer[i].memoriesprovider == "spotify") {
+                if (!context.mounted) return;
+                await invokeSpotify(context);
+                probeLatestPodcastSpotify(buffer[i].memoriesargone);
               }
               break;
 
             case "event":
-              probeLatestEvents(buffer[i].contentargone);
+              probeLatestEvents(buffer[i].memoriescaption);
               break;
 
             default:
-              results.add(ContentData(
-                  contentid: buffer[i].contentid,
-                  contenttype: buffer[i].contenttype,
-                  contentargone: buffer[i].contentargone,
-                  contentargtwo: buffer[i].contentargtwo));
-              content.add(i);
-              // VibranceDatabase.instance.updateWeight(i, buffer[i].contentweight - 1);
+              results.add(MemoriesData(
+                  memoriesid: buffer[i].memoriesid,
+                  memoriescaption: buffer[i].memoriescaption,
+                  memoriestype: buffer[i].memoriestype,
+                  memoriessubtype: buffer[i].memoriessubtype,
+                  memoriesprovider: buffer[i].memoriesprovider,
+                  memoriesargone: buffer[i].memoriesargone,
+                  memoriesargtwo: buffer[i].memoriesargtwo));
+              memories.add(i);
+/*               VibranceDatabase.instance
+                  .updateWeight(i, buffer[i].memoriesweight - 1); */
               break;
           }
         }
@@ -116,31 +133,40 @@ Future makeDecisions(BuildContext context) async {
     } else {
       print("Everything is not weight of 3, moving on...");
     }
-    print(content);
+    print(memories);
     print(results);
     buffer.clear();
   }
 }
 
 //This is for manual intervention and testing
-Future pullContentData(int id) async {
+Future pullMemoriesData(int id) async {
   final db = await VibranceDatabase.instance.database;
 
-  var typeBuffer = await db.query("Content", columns: ["type"]);
+  var typeBuffer = await db.query("Memories", columns: ["type"]);
   var type = typeBuffer[id - 1]["type"].toString();
 
-  var argoneBuffer = await db.query("Content", columns: ["text"]);
-  var argone = argoneBuffer[id - 1]["text"].toString();
+  var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
+  var subtype = subtypeBuffer[id - 1]["subtype"].toString();
 
-  var argtwoBuffer = await db.query("Content", columns: ["raw"]);
-  var argtwo = argtwoBuffer[id - 1]["raw"];
+  var providerBuffer = await db.query("Memories", columns: ["provider"]);
+  var provider = providerBuffer[id - 1]["provider"].toString();
 
-  results.add(ContentData(
-      contentid: id,
-      contenttype: type,
-      contentargone: argone,
-      contentargtwo: argtwo));
-  content.add(id - 1);
+  var captionBuffer = await db.query("Memories", columns: ["text"]);
+  var caption = captionBuffer[id - 1]["text"].toString();
+
+  var argoneBuffer = await db.query("Memories", columns: ["raw"]);
+  var argone = argoneBuffer[id - 1]["raw"];
+
+  results.add(MemoriesData(
+      memoriesid: id,
+      memoriescaption: caption,
+      memoriestype: type,
+      memoriessubtype: subtype,
+      memoriesprovider: provider,
+      memoriesargone: argone,
+      memoriesargtwo: ""));
+  memories.add(id - 1);
   print(
-      "${results.elementAt(id - 1).contentid}, ${results.elementAt(id - 1).contenttype}");
+      "${results.elementAt(id - 1).memoriesid}, ${results.elementAt(id - 1).memoriestype}");
 }

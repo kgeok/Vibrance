@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vibrance/data_management.dart';
@@ -26,7 +27,6 @@ void main() async {
   runApp(const MaterialApp(home: MainPage()));
   VibranceDatabase.instance.initStatefromDB();
   populateFromState();
-  //https://feeds.simplecast.com/ozLNkAqI
 }
 
 class MainPage extends StatefulWidget {
@@ -39,8 +39,8 @@ class MainPage extends StatefulWidget {
 
 GlobalKey<MyAppState> key = GlobalKey();
 const sku = "Vibrance";
-const version = "0.5";
-const release = "Pre-Release";
+const version = "1.0";
+const release = "Pre-Release, Concept B";
 const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
 const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
 double currentMood = 1;
@@ -50,7 +50,7 @@ var days = [];
 var results = [];
 var services = [];
 List<int> journal = [];
-List<int> content = [];
+List<int> memories = [];
 DateTime currentDate = DateTime.now();
 var spotifyApp;
 final record = Record();
@@ -68,51 +68,63 @@ var note = "";
 var noteBuffer;
 var textBuffer;
 var text;
-double entrywidth = 350;
-Color color = Color(0xFF4A3E7E);
+Color defaultcolor = Color(0xFF752983);
 var backgroundcolor;
-String peptalk = "This one is a good one.";
+var buttoncolor = Color(0xFF65496A);
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 class DayData {
-  var dayid;
+  int dayid;
   late var daydate;
   late var daymood;
-  late var daynote;
-  late var daycaption;
-  late var daycolor;
+  late String daynote;
+  late String daycaption;
+  late Color daycolorone;
+  late Color daycolortwo;
+  late Color daycolorthree;
+  late Color daycolorfour;
+  late Color daycolorfive;
+  late Color daycolorsix;
 
-  DayData(
-      {this.dayid,
-      required this.daydate,
-      required this.daymood,
-      this.daynote,
-      this.daycaption,
-      this.daycolor});
+  DayData({
+    required this.dayid,
+    required this.daydate,
+    required this.daymood,
+    required this.daynote,
+    required this.daycaption,
+    required this.daycolorone,
+    required this.daycolortwo,
+    required this.daycolorthree,
+    required this.daycolorfour,
+    required this.daycolorfive,
+    required this.daycolorsix,
+  });
 }
 
-class ContentData {
-  var contentid;
-  late var contenttype;
-  late var contentsubtype;
-  late var contentdate;
-  late var contentcaption;
-  late var contentargone;
-  late var contentargtwo;
-  late var contentargthree;
-  late var contentweight;
+class MemoriesData {
+  var memoriesid;
+  late var memoriestype;
+  late var memoriessubtype;
+  late var memoriesprovider;
+  late var memoriesdate;
+  late var memoriescaption;
+  late var memoriesargone;
+  late var memoriesargtwo;
+  late var memoriesargthree;
+  late var memoriesweight;
 
-  ContentData(
-      {this.contentid,
-      required this.contenttype,
-      this.contentsubtype,
-      this.contentcaption,
-      this.contentargone,
-      this.contentargtwo,
-      this.contentargthree,
-      this.contentweight});
+  MemoriesData(
+      {this.memoriesid,
+      required this.memoriestype,
+      required this.memoriessubtype,
+      required this.memoriesprovider,
+      this.memoriescaption,
+      this.memoriesargone,
+      this.memoriesargtwo,
+      this.memoriesargthree,
+      this.memoriesweight});
 }
 
 class ServiceData {
@@ -128,7 +140,26 @@ class ServiceData {
       this.datathree, this.datafour, this.datafive);
 }
 
-Future<void> redirectURL(String url) async {
+const memoriesColors = {
+  //Organizing this way in case we want to make updates to the future
+  "music": 0xFFE91E63,
+  "podcasts": 0xFF9C27B0,
+  "events": 0xFFFFEB3B,
+  "photos": 0xFF2196F3,
+  "event": 0xFFFFEB3B,
+  "photo": 0xFF2196F3,
+  "voice": 0xFF4CAF50,
+  "text": 0xFFFF9800,
+  "default": 0xFF000000
+};
+
+Color darkenColor(Color color) {
+  final darkvariant = HSLColor.fromColor(color).withLightness(
+      (HSLColor.fromColor(color).lightness - .3).clamp(0.0, 1.0));
+  return darkvariant.toColor();
+}
+
+Future redirectURL(String url) async {
   if (!await launchUrl(Uri.parse(url))) {
     throw "Error launching link";
   }
@@ -154,7 +185,7 @@ Future stopRecording() async {
   final selectedAudiotoData;
   isRecording = await record.isRecording();
   await record.stop();
-  var path = await record.stop();
+  String? path = await record.stop();
   print(path);
 
   if (path != null) {
@@ -166,9 +197,8 @@ Future stopRecording() async {
       noteBuffer = DateTime.now().toString().substring(0, 10) + " Recording";
     }
     noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
-    note = noteBuffer;
-    VibranceDatabase.instance
-        .updateContentDB("voice", "", noteBuffer, selectedAudiotoData);
+    VibranceDatabase.instance.updateMemoriesDB(
+        "voice", "audio", "system", noteBuffer, selectedAudiotoData);
     filebuffer.delete();
     noteBuffer = "";
   }
@@ -176,11 +206,11 @@ Future stopRecording() async {
   isRecording = false;
 }
 
-void openAudioPlayer(BuildContext context, argone, argtwo) async {
+void openAudioPlayer(BuildContext context, argone, caption) async {
   final audioplayer = AudioPlayer();
   final root = await getDatabasesPath();
   //We know this file variable won't be used but we need an excuse for the file to be generated
-  var file = File(root + "/recording.m4a").writeAsBytes(argtwo);
+  var file = File(root + "/recording.m4a").writeAsBytes(argone);
   //Disposing for when we are done to clear device space
   File filebuffer = await file;
   showDialog(
@@ -192,7 +222,7 @@ void openAudioPlayer(BuildContext context, argone, argtwo) async {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text(argone, style: dialogBody),
+                Text(caption, style: dialogBody),
                 Center(
                     child: Row(children: [
                   IconButton(
@@ -232,9 +262,9 @@ void openAudioPlayer(BuildContext context, argone, argtwo) async {
   );
 }
 
-Future addContent() async {
+Future addMemories() async {
   //Adding this here because of some weird IDE issue...
-  content.add(0);
+  memories.add(0);
 }
 
 Future authenticateSpotify(BuildContext context) async {
@@ -243,7 +273,12 @@ Future authenticateSpotify(BuildContext context) async {
   final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
   final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
   const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/";
-  final scopes = ['user-read-email', 'user-library-read'];
+  final scopes = [
+    'user-read-email',
+    'user-library-read',
+    'user-read-private',
+    'user-read-recently-played',
+  ];
   final authUri =
       grant.getAuthorizationUrl(Uri.parse(redirectUri), scopes: scopes);
 
@@ -265,7 +300,7 @@ Future authenticateSpotify(BuildContext context) async {
                 credentials.refreshToken,
                 credentials.scopes,
                 credentials.expiration,
-                ""); //TODO Fix this
+                "");
           }
           return NavigationDecision.navigate;
         },
@@ -302,42 +337,73 @@ Future authenticateSpotify(BuildContext context) async {
 //Podcast Components
 
 Future probeLatestPodcastRSS(String url) async {
-  var rssfeed = await client.get(Uri.parse(url));
-  var content = RssFeed.parse(rssfeed.body);
-  print(content.title);
-  RssItem latestitem = content.items!.first;
-  print(latestitem.title);
-  print(latestitem.pubDate);
+  try {
+    //We need to clean up the url for the check to work properly
+    String cleanurl = (url.replaceAll(RegExp("http://|https://|rss://"), ""));
+    final connection = await InternetAddress.lookup(
+        cleanurl.substring(0, cleanurl.indexOf('/')));
+    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+      print('Connected to $url');
 
-  results.add(ContentData(
-      contenttype: "podcast",
-      contentsubtype: "rss",
-      contentargone: (content.title).toString(),
-      contentargtwo: (latestitem.title).toString(),
-      contentargthree: (latestitem.pubDate).toString()));
+      var rssfeed = await client.get(Uri.parse(url));
+      var content = RssFeed.parse(rssfeed.body);
+      print(content.title);
+      RssItem latestitem = content.items!.first;
+      print(latestitem.title);
+      print(latestitem.pubDate);
 
-  addContent();
+      results.add(MemoriesData(
+          memoriesid: 0,
+          memoriescaption: (content.title).toString(),
+          memoriestype: "podcast",
+          memoriessubtype: "episode",
+          memoriesprovider: "rss",
+          memoriesargone: (latestitem.title).toString(),
+          memoriesargtwo: (latestitem.pubDate).toString(),
+          memoriesargthree: (latestitem.link).toString()));
+
+      addMemories();
+    }
+  } on SocketException catch (_) {
+    print('Not Connected to $url');
+  }
 }
 
 Future probeLatestPodcastSpotify(String id) async {
-  //await invokeSpotify(context);
-  if (spotifyApp != null) {
-    //Because Show title isn't coming from the episode we will take it out seperately
-    var show = await spotifyApp.shows.get(id);
-    var episode = spotifyApp.shows.episodes(id);
-    var latestitem = (await episode.first()).items!.first;
-    print(show.name);
-    print(latestitem.name);
-    results.add(ContentData(
-        contenttype: "podcast",
-        contentsubtype: "spotify",
-        contentargone: (show.name).toString(),
-        contentargtwo: (latestitem.name).toString(),
-        contentargthree: (latestitem.releaseDate).toString()));
+  try {
+    final connection = await InternetAddress.lookup('accounts.spotify.com');
+    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+      print('Connected to Spotify');
+      if (spotifyApp != null) {
+        //Because Show title isn't coming from the episode we will take it out seperately
+        var show = await spotifyApp.shows.get(id);
+        var episode = spotifyApp.shows.episodes(id);
+        var latestitem = (await episode.first()).items!.first;
+        print(show.name);
+        print(latestitem.name);
+        results.add(MemoriesData(
+            memoriesid: 0,
+            memoriescaption: (show.name).toString(),
+            memoriestype: "podcast",
+            memoriessubtype: "episode",
+            memoriesprovider: "spotify",
+            memoriesargone: (latestitem.name).toString(),
+            memoriesargtwo: (latestitem.releaseDate).toString(),
+            memoriesargthree: id));
+        memories.add(0);
+      }
+    }
+  } on SocketException catch (_) {
+    print('Not Connected to Spotify');
+  }
+}
 
-    addContent();
-  } else {
-    print("Spotify not Ready...");
+Future getSpotifyArt(String id, String type) async {
+  switch (type) {
+    case ("album"):
+      var album = await spotifyApp.albums.get(id);
+      var art = album.images[0];
+      return art;
   }
 }
 
@@ -354,7 +420,7 @@ Future probeLatestEvents(String name) async {
   allCalendars = await deviceCalendarPlugin.retrieveCalendars();
   allCalendarsBuffer = allCalendars?.data;
 
-  //Since it's not so easy to just pull the contents using IndexOf or something else, we have to just traverse the array and match it to the given calendar
+  //Since it's not so easy to just pull the Memoriess using IndexOf or something else, we have to just traverse the array and match it to the given calendar
   for (int i = 0; i < (allCalendarsBuffer.length); i++) {
     if (allCalendarsBuffer[i].name == name) {
       var events = await deviceCalendarPlugin.retrieveEvents(
@@ -367,12 +433,15 @@ Future probeLatestEvents(String name) async {
           print(eventsBuffer[i].title);
           print(eventsBuffer[i].start);
 
-          results.add(ContentData(
-              contentid: i,
-              contenttype: "event",
-              contentargone: (eventsBuffer[i].title).toString(),
-              contentargtwo: (eventsBuffer[i].start).toString()));
-          content.add(i);
+          results.add(MemoriesData(
+              memoriesid: i,
+              memoriestype: "event",
+              memoriessubtype: "event",
+              memoriesprovider: "system",
+              memoriescaption: (eventsBuffer[i].title).toString(),
+              memoriesargone: (eventsBuffer[i].start).toString(),
+              memoriesargtwo: name));
+          memories.add(i);
         }
       }
     }
@@ -384,9 +453,9 @@ void populateFromState() async {
       milliseconds:
           1500)); //It apparently takes 1 second or so for DB to populate State
 
-  var counterBuffer =
+  int counterBuffer =
       dayCounter; //I need to freeze the state of the counter so that it doesn't keep iterating on append
-  for (var i = 0; i < counterBuffer; i++) {
+  for (int i = 0; i < counterBuffer; i++) {
     currentMood = days[i].daymood;
     date = days[i].daydate;
 
@@ -397,333 +466,83 @@ void populateFromState() async {
   currentMood = 1;
 }
 
-//Journal Entry Components
+//Memory Entry Components
 
-Widget journalEntry(BuildContext context, final caption, final mood, var date,
-    var color, var note, var id) {
-  return Center(
-      child: Wrap(
-    direction: Axis.vertical,
-    spacing: 4,
-    children: [
-      InkWell(
-          splashColor: color,
-          highlightColor: color,
-          onTap: () {
-            journalDialog(context, caption, mood, date, color, note, id);
-          },
-          child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 500),
-              opacity: 0.9,
-              child: Container(
-                  padding: const EdgeInsets.fromLTRB(2, 0, 0, 2),
-                  decoration: ShapeDecoration(
-                      shadows: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          spreadRadius: 5,
-                          blurRadius: 7,
-                          offset:
-                              const Offset(0, 3), // changes position of shadow
-                        ),
-                      ],
-                      color: color,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10))),
-                  height: 65.0,
-                  width: entrywidth,
-                  child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text("Mood: ${mood.toInt()}/6",
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 16)),
-                        Text(date,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 14))
-                      ]))))),
-      const SizedBox(height: 1),
-    ],
-  ));
-}
+Widget memoriesEntry(BuildContext context, int id, String caption, String type,
+    String subtype, String provider, var argone, var argtwo, var argthree) {
+  double cardwidth() {
+    //print("Width");
+    //print(MediaQuery.of(context).size.width);
+    if (MediaQuery.of(context).size.width < 500) {
+      return (MediaQuery.of(context).size.width / 2) - 10;
+    } else {
+      return 200;
+    }
+  }
 
-//Journal Dialog is long because each of these set of widgets are generated at once for each day in real-time
-void journalDialog(BuildContext context, var caption, var mood, var date,
-    var color, var note, var id) {
-  mood = mood.toInt();
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-          backgroundColor: color,
-          title: Text("Mood: $mood/6",
-              style: GoogleFonts.newsCycle(
-                  color: color.computeLuminance() > 0.5
-                      ? Colors.black
-                      : Colors.white)),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text(date.toString(),
-                    style: GoogleFonts.newsCycle(
-                        fontWeight: FontWeight.w600,
-                        color: color.computeLuminance() > 0.5
-                            ? Colors.black
-                            : Colors.white)),
-                const Text(""),
-                Text(note.toString(),
-                    style: GoogleFonts.newsCycle(
-                        fontWeight: FontWeight.w600,
-                        color: color.computeLuminance() > 0.5
-                            ? Colors.black
-                            : Colors.white)),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text("Options",
-                  style: GoogleFonts.newsCycle(
-                      fontWeight: FontWeight.w600,
-                      color: color.computeLuminance() > 0.5
-                          ? Colors.black
-                          : Colors.white)),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                        backgroundColor: color,
-                        title: Text("Options",
-                            style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white)),
-                        content: SingleChildScrollView(
-                          child: ListBody(
-                            children: <Widget>[
-                              SimpleDialogOption(
-                                  child: Text("Copy Entry",
-                                      style: GoogleFonts.newsCycle(
-                                          fontWeight: FontWeight.w600,
-                                          color: color.computeLuminance() > 0.5
-                                              ? Colors.black
-                                              : Colors.white)),
-                                  onPressed: () {
-                                    Clipboard.setData(ClipboardData(
-                                        text:
-                                            "${"Mood: " + mood.toString() + ", " + date} " +
-                                                note));
-                                  }),
-                              SimpleDialogOption(
-                                  child: Text("Edit Note",
-                                      style: GoogleFonts.newsCycle(
-                                          fontWeight: FontWeight.w600,
-                                          color: color.computeLuminance() > 0.5
-                                              ? Colors.black
-                                              : Colors.white)),
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                            backgroundColor: color,
-                                            title: Text('Enter New Note',
-                                                style: GoogleFonts.newsCycle(
-                                                    fontWeight: FontWeight.w700,
-                                                    color:
-                                                        color.computeLuminance() >
-                                                                0.5
-                                                            ? Colors.black
-                                                            : Colors.white)),
-                                            content: SingleChildScrollView(
-                                              child: ListBody(
-                                                children: <Widget>[
-                                                  TextField(
-                                                      autofocus: true,
-                                                      decoration: InputDecoration(
-                                                          fillColor:
-                                                              Colors.grey[300],
-                                                          filled: true,
-                                                          border:
-                                                              const OutlineInputBorder(),
-                                                          hintText: note),
-                                                      onChanged: (value) {
-                                                        noteBuffer = value;
-                                                      }),
-                                                ],
-                                              ),
-                                            ),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                child: Text('Cancel',
-                                                    style: GoogleFonts.newsCycle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color:
-                                                            color.computeLuminance() >
-                                                                    0.5
-                                                                ? Colors.black
-                                                                : Colors
-                                                                    .white)),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              ),
-                                              TextButton(
-                                                child: Text('OK',
-                                                    style: GoogleFonts.newsCycle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color:
-                                                            color.computeLuminance() >
-                                                                    0.5
-                                                                ? Colors.black
-                                                                : Colors
-                                                                    .white)),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                  if (noteBuffer == "") {
-                                                    noteBuffer = "";
-                                                  }
-                                                  noteBuffer ??= "";
-                                                  note = noteBuffer;
-                                                  noteBuffer = "";
-                                                  Navigator.pop(context);
-                                                  VibranceDatabase.instance
-                                                      .updateDaysDB(id, caption,
-                                                          note, color);
-                                                },
-                                              )
-                                            ]);
-                                      },
-                                    );
-                                  }),
-                              SimpleDialogOption(
-                                  child: Text("Delete Entry",
-                                      style: GoogleFonts.newsCycle(
-                                          fontWeight: FontWeight.w600,
-                                          color: color.computeLuminance() > 0.5
-                                              ? Colors.red[800]
-                                              : Colors.red[100])),
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                            backgroundColor: Colors.orange[800],
-                                            title: Text("Delete Entry?",
-                                                style: dialogHeader),
-                                            content: SingleChildScrollView(
-                                              child: ListBody(
-                                                children: <Widget>[
-                                                  Text(
-                                                      "Are you sure you want to delete this entry?",
-                                                      style: dialogBody),
-                                                ],
-                                              ),
-                                            ),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                child: Text('Cancel',
-                                                    style: dialogBody),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              ),
-                                              TextButton(
-                                                child: Text('OK',
-                                                    style: dialogBody),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                  days.removeAt(id - 1);
-                                                  VibranceDatabase.instance
-                                                      .initDBfromState();
-                                                  //reenumerateState();
-                                                  Navigator.of(context).pop();
-                                                },
-                                              )
-                                            ]);
-                                      },
-                                    );
-                                  }),
-                            ],
-                          ),
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                            child: Text("Dismiss",
-                                style: GoogleFonts.newsCycle(
-                                    fontWeight: FontWeight.w600,
-                                    color: color.computeLuminance() > 0.5
-                                        ? Colors.black
-                                        : Colors.white)),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          )
-                        ]);
-                  },
-                );
-              },
-            ),
-            TextButton(
-              child: Text("Dismiss",
-                  style: GoogleFonts.newsCycle(
-                      fontWeight: FontWeight.w600,
-                      color: color.computeLuminance() > 0.5
-                          ? Colors.black
-                          : Colors.white)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            )
-          ]);
-    },
-  );
-}
+  double cardheight() {
+    //print("Height");
+    //print(MediaQuery.of(context).size.height);
+    if (MediaQuery.of(context).size.height < 500) {
+      return (MediaQuery.of(context).size.height / 2) - 30;
+    } else {
+      return 180;
+    }
+  }
 
-List<Widget> makeJournalEntry(BuildContext context) {
-  return List<Widget>.generate(journal.length, (int index) {
-    return journalEntry(
-        context,
-        days[index].daycaption,
-        days[index].daymood,
-        days[index].daydate,
-        days[index].daycolor,
-        days[index].daynote,
-        (index + 1));
-  });
-}
-
-//Content Entry Components
-
-Widget contentEntry(BuildContext context, var id, var type, var argone,
-    var argtwo, var argthree) {
   switch (type) {
     case "music":
-      color = Colors.pink;
+      var typecolor = Color(memoriesColors.values.elementAt(0));
+      //var coverphoto;
+
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
-            null;
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                    backgroundColor: Colors.pink,
+                    title: Text(caption, style: dialogHeader),
+                    content: SingleChildScrollView(
+                      child: ListBody(
+                        children: <Widget>[
+                          Text("", style: dialogBody),
+                          Text("Music", style: dialogBody),
+                        ],
+                      ),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        child: Text('Open', style: dialogBody),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          switch (provider) {
+                            case "spotify":
+                              switch (subtype) {
+                                case "album":
+                                  redirectURL(
+                                      "https://open.spotify.com/album/" +
+                                          argone);
+                                  break;
+                              }
+
+                              break;
+                            default:
+                              break;
+                          }
+                        },
+                      ),
+                      TextButton(
+                        child: Text('OK', style: dialogBody),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      )
+                    ]);
+              },
+            );
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -740,58 +559,79 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
+                  height: cardheight(),
+                  width: cardwidth(),
                   child: Center(
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                        Text(argone,
+                        Text(caption,
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 16)),
-                        Text(argtwo,
+                        Text("Music",
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
                                 fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 14))
                       ])))));
 
     case "podcast":
-      color = Colors.purple;
+      var typecolor = Color(memoriesColors.values.elementAt(1));
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             showDialog(
               context: context,
               builder: (BuildContext context) {
                 return AlertDialog(
                     backgroundColor: Colors.purple,
-                    title: Text(argone, style: dialogHeader),
+                    title: Text(caption, style: dialogHeader),
                     content: SingleChildScrollView(
                       child: ListBody(
                         children: <Widget>[
-                          Text(argthree, style: dialogBody),
+                          Text(argone, style: dialogBody),
                           Text("", style: dialogBody),
                           Text(argtwo, style: dialogBody),
                         ],
                       ),
                     ),
                     actions: <Widget>[
+                      TextButton(
+                        child: Text('Open', style: dialogBody),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          switch (provider) {
+                            case "spotify":
+                              switch (subtype) {
+                                case "episode":
+                                  redirectURL("https://open.spotify.com/show/" +
+                                      argthree);
+                                  break;
+                              }
+                            case "rss":
+                              redirectURL(argthree);
+                              break;
+
+                            default:
+                              break;
+                          }
+                        },
+                      ),
                       TextButton(
                         child: Text('OK', style: dialogBody),
                         onPressed: () {
@@ -817,62 +657,72 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
+                  height: cardheight(),
+                  width: cardwidth(),
                   child: Center(
                       child: Padding(
                           padding: EdgeInsetsDirectional.all(5),
                           child: Column(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Text(argone,
+                                Text(caption,
                                     overflow: TextOverflow.fade,
                                     softWrap: false,
                                     maxLines: 1,
                                     style: GoogleFonts.newsCycle(
-                                        color: color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
+                                        color:
+                                            typecolor.computeLuminance() > 0.5
+                                                ? Colors.black
+                                                : Colors.white,
                                         fontSize: 18)),
-                                Text(argtwo,
+                                Text(argone,
                                     overflow: TextOverflow.fade,
                                     softWrap: false,
                                     maxLines: 1,
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.newsCycle(
                                         fontWeight: FontWeight.w500,
-                                        color: color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
+                                        color:
+                                            typecolor.computeLuminance() > 0.5
+                                                ? Colors.black
+                                                : Colors.white,
                                         fontSize: 14))
                               ]))))));
 
     case "event":
-      color = Colors.yellow;
+      var typecolor = Color(memoriesColors.values.elementAt(2));
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             showDialog(
               context: context,
               builder: (BuildContext context) {
                 return AlertDialog(
                     backgroundColor: Colors.yellow,
-                    title: Text(argone, style: dialogHeader),
+                    title: Text(caption,
+                        style: GoogleFonts.newsCycle(
+                            fontWeight: FontWeight.w700, color: Colors.black)),
                     content: SingleChildScrollView(
                       child: ListBody(
                         children: <Widget>[
                           Text("", style: dialogBody),
-                          Text(argtwo, style: dialogBody),
+                          Text(argone,
+                              style: GoogleFonts.newsCycle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black)),
                         ],
                       ),
                     ),
                     actions: <Widget>[
                       TextButton(
-                        child: Text('OK', style: dialogBody),
+                        child: Text('OK',
+                            style: GoogleFonts.newsCycle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black)),
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
@@ -896,53 +746,54 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
+                  height: cardheight(),
+                  width: cardwidth(),
                   child: Center(
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                        Text(argone.toString(),
+                        Text(caption.toString(),
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 16)),
-                        Text(argtwo.toString(),
+                        Text(argone.toString().substring(0, 16),
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
                                 fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 14))
+                                fontSize: 20))
                       ])))));
 
     case "photo":
-      color = Colors.blue;
+      var typecolor = Color(memoriesColors.values.elementAt(3));
       print("");
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             showDialog(
                 context: context,
                 builder: (BuildContext context) {
                   return AlertDialog(
+                    backgroundColor: Colors.blue,
                     content: Container(
                         height: 400,
                         width: (MediaQuery.of(context).size.width) - 10,
                         decoration: BoxDecoration(
                             image: DecorationImage(
-                                image: MemoryImage(argtwo),
+                                image: MemoryImage(argone),
                                 fit: BoxFit.contain))),
                   );
                 });
@@ -962,20 +813,20 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                             const Offset(0, 3), // changes position of shadow
                       ),
                     ],
-                    color: color,
+                    color: typecolor,
                     image: DecorationImage(
-                        image: MemoryImage(argtwo), fit: BoxFit.cover),
+                        image: MemoryImage(argone), fit: BoxFit.cover),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30))),
-                height: (MediaQuery.of(context).size.width / 2) - 30,
-                width: (MediaQuery.of(context).size.width / 2) - 10,
+                height: cardheight(),
+                width: cardwidth(),
               )));
 
     case "voice":
-      color = Colors.green;
+      var typecolor = Color(memoriesColors.values.elementAt(6));
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             openAudioPlayer(context, argone, argtwo);
           },
@@ -994,25 +845,26 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
+                  height: cardheight(),
+                  width: cardwidth(),
                   child: Center(
                       child: Padding(
                           padding: EdgeInsetsDirectional.all(5),
                           child: Column(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Text(argone,
+                                Text(caption,
                                     overflow: TextOverflow.fade,
                                     softWrap: false,
                                     maxLines: 1,
                                     style: GoogleFonts.newsCycle(
-                                        color: color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
+                                        color:
+                                            typecolor.computeLuminance() > 0.5
+                                                ? Colors.black
+                                                : Colors.white,
                                         fontSize: 20)),
                                 Text("Voice Note",
                                     overflow: TextOverflow.fade,
@@ -1020,17 +872,18 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                                     maxLines: 1,
                                     style: GoogleFonts.newsCycle(
                                         fontWeight: FontWeight.w500,
-                                        color: color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
+                                        color:
+                                            typecolor.computeLuminance() > 0.5
+                                                ? Colors.black
+                                                : Colors.white,
                                         fontSize: 14))
                               ]))))));
 
     case "text":
-      color = Colors.orange;
+      var typecolor = Color(memoriesColors.values.elementAt(7));
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             showDialog(
               context: context,
@@ -1041,7 +894,7 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                     content: SingleChildScrollView(
                       child: ListBody(
                         children: <Widget>[
-                          Text(argone, style: dialogBody),
+                          Text(caption, style: dialogBody),
                         ],
                       ),
                     ),
@@ -1071,33 +924,34 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
-                  width: (MediaQuery.of(context).size.width / 2) - 10,
+                  height: cardheight(),
+                  width: cardwidth(),
                   child: Center(
                       child: Padding(
                           padding: EdgeInsetsDirectional.all(5),
                           child: Column(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Text(argone,
+                                Text(caption,
                                     overflow: TextOverflow.fade,
                                     softWrap: false,
                                     maxLines: 1,
                                     style: GoogleFonts.newsCycle(
-                                        color: color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
+                                        color:
+                                            typecolor.computeLuminance() > 0.5
+                                                ? Colors.black
+                                                : Colors.white,
                                         fontSize: 22)),
                               ]))))));
 
     default:
-      color = lightMode;
+      var typecolor = Color(memoriesColors.values.elementAt(8));
       return InkWell(
-          splashColor: color,
-          highlightColor: color,
+          splashColor: typecolor,
+          highlightColor: typecolor,
           onTap: () {
             Navigator.of(context).pop();
             MaterialPageRoute(builder: (context) => const OnboardingPage());
@@ -1117,31 +971,31 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
-                      color: color,
+                      color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
-                  height: (MediaQuery.of(context).size.width / 2) - 30,
+                  height: cardheight(),
                   width: (MediaQuery.of(context).size.width) - 10,
                   child: Center(
                       child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                        Text("No Content.",
+                        Text("No Memories Available.",
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 16)),
-                        Text("Go to Settings to add content.",
+                        Text("Go to Settings to add Memories.",
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             maxLines: 1,
                             style: GoogleFonts.newsCycle(
                                 fontWeight: FontWeight.w500,
-                                color: color.computeLuminance() > 0.5
+                                color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
                                 fontSize: 14))
@@ -1149,41 +1003,28 @@ Widget contentEntry(BuildContext context, var id, var type, var argone,
   }
 }
 
-void setVibrance(int vibe) {
+String peptalk(int vibe) {
   switch (vibe) {
     case 1:
-      color = ui.Color.fromARGB(255, 47, 0, 0);
-      peptalk = "Let's get back on track.";
-      break;
+      return "Let's get back on track.";
 
     case 2:
-      color = ui.Color.fromARGB(255, 59, 47, 0);
-      peptalk = "We can do this.";
-      break;
+      return "We can do this.";
 
     case 3:
-      color = ui.Color.fromARGB(255, 77, 119, 0);
-      peptalk = "Just a little push forward.";
-      break;
+      return "Just a little push forward.";
 
     case 4:
-      color = ui.Color.fromARGB(255, 0, 73, 112);
-      peptalk = "We can do this.";
-      break;
+      return "We can do this.";
 
     case 5:
-      color = ui.Color.fromARGB(255, 255, 174, 0);
-      peptalk = "We're just about there.";
-      break;
+      return "We're just about there.";
 
     case 6:
-      color = ui.Color.fromARGB(255, 255, 125, 125);
-      peptalk = "This is the best yet.";
-      break;
+      return "This is the best yet.";
+
     default:
-      color = Color(0xFF4A3E7E);
-      peptalk = "This one is a good one.";
-      break;
+      return "This one is a good one.";
   }
 }
 
@@ -1222,17 +1063,17 @@ void clearDaysWarning(BuildContext context) {
   );
 }
 
-void clearContentWarning(BuildContext context) {
+void clearMemoriesWarning(BuildContext context) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
           backgroundColor: Colors.orange[800],
-          title: Text("Clear Content?", style: dialogHeader),
+          title: Text("Clear Memories?", style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Are you sure you want to clear Content?",
+                Text("Are you sure you want to clear Memories?",
                     style: dialogBody),
                 Text("(This action cannot be reversed)", style: dialogBody),
               ],
@@ -1248,7 +1089,7 @@ void clearContentWarning(BuildContext context) {
             TextButton(
               child: Text('OK', style: dialogBody),
               onPressed: () {
-                VibranceDatabase.instance.clearContentDB();
+                VibranceDatabase.instance.clearMemoriesDB();
                 Navigator.of(context).pop();
               },
             )
@@ -1263,13 +1104,13 @@ void clearServicesWarning(BuildContext context) {
     builder: (BuildContext context) {
       return AlertDialog(
           backgroundColor: Colors.orange[800],
-          title: Text("Log Out?", style: dialogHeader),
+          title: Text("Sign Out?", style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Are you sure you want to log out of all services?",
+                Text("Are you sure you want to sign out of all Providers?",
                     style: dialogBody),
-                Text("(You will need to log back in later.)",
+                Text("(You will need to sign back in later.)",
                     style: dialogBody),
               ],
             ),
@@ -1311,7 +1152,7 @@ Future startOnboarding(BuildContext context) async {
     onboardDialog(
         context,
         "Welcome to $sku",
-        "This is $sku, a way to push you forward with your own content.",
+        "This is $sku, a way to push you forward with your own Memories.",
         "Inspire yourself with the help of your Music, Photos, Podcasts, Voice and more.",
         "Keep track of how you were feeling with the Journal",
         "All on Device and not stored in the cloud.");
@@ -1324,17 +1165,6 @@ Future startOnboarding(BuildContext context) async {
 
 class MyAppState extends State<MainPage> {
   var pages = <Widget>[HomePage(), JournalPage(), SettingsPage()];
-
-  void reenumerateState() {
-    noteBuffer = "";
-    note = "";
-    dayCounter = 0;
-    days.clear();
-    setState(() {
-      journal = [];
-    });
-    VibranceDatabase.instance.initStatefromDB();
-  }
 
   @override
   initState() {
@@ -1389,134 +1219,329 @@ class MyAppState extends State<MainPage> {
 }
 
 Future invokeSpotify(BuildContext context) async {
-  //Let's grab the Services data from the DB and put it into our ServiceData object based List
-  await VibranceDatabase.instance.provideServiceData();
-  //Let's find out which item in the list is the Spotify Cred Data...
-  var spotifyindex =
-      services.indexWhere((item) => (item.servicename) == "spotify");
-  //If the result is not empty, which is considered a -1 index result, we can move forward
-  if (spotifyindex != -1) {
-    //We don't want this leaking out during Prod usage
-    if (release == "Pre-Release") {
-      print(spotifyindex);
-      print(services[spotifyindex].servicename);
-      print(services[spotifyindex].dataone);
-      print(services[spotifyindex].datatwo);
-      print(services[spotifyindex].datathree);
-      print(services[spotifyindex].datafour);
-    }
-    final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid,
-        accessToken: services[spotifyindex].dataone,
-        refreshToken: services[spotifyindex].datatwo,
-        scopes: ['user-read-email', 'user-library-read'],
-        expiration: DateTime.parse(services[spotifyindex].datafour));
-    //We need to check if the refresh token date is expired...
-    if ((DateTime.now())
-        .isBefore(DateTime.parse(services[spotifyindex].datafour))) {
-      spotifyApp = spotify.SpotifyApi(credentials);
-    } else {
-      //Token Refresh
-      //Remove whatever is in the DB, refresh and then dump in the new data
+  try {
+    final connection = await InternetAddress.lookup('accounts.spotify.com');
+    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+      print('Connected to Spotify');
+      //Let's grab the Services data from the DB and put it into our ServiceData object based List
+      await VibranceDatabase.instance.provideServiceData();
+      //Let's find out which item in the list is the Spotify Cred Data...
 
-      spotify.SpotifyApi api = spotify.SpotifyApi(credentials,
-          onCredentialsRefreshed:
-              (spotify.SpotifyApiCredentials newCred) async {
-        print("Getting new Spotify OAuth Refresh Token...");
-        VibranceDatabase.instance.removeAllServices();
-        services.removeWhere((item) => (item.servicename) == "spotify");
-        //VibranceDatabase.instance.removeService("Spotify"); //TODO: Throwing somekind of error, remove the delete all services test and fix this one
-        await VibranceDatabase.instance.addService(
-            1,
-            "spotify",
-            newCred.accessToken.toString(),
-            newCred.refreshToken.toString(),
-            newCred.scopes.toString(),
-            newCred.expiration.toString(),
-            ""); //TODO Fix this
-      });
-      invokeSpotify(context);
+      var spotifyindex =
+          services.indexWhere((item) => (item.servicename) == "spotify");
+      //If the result is not empty, which is considered a -1 index result, we can move forward
+      if (spotifyindex != -1) {
+        spotifyApp = spotify.SpotifyApi(
+            spotify.SpotifyApiCredentials(spotifycid, spotifysid,
+                accessToken: services[spotifyindex].dataone,
+                refreshToken: services[spotifyindex].datatwo,
+                scopes: ['user-read-email', 'user-library-read'],
+                expiration: DateTime.parse(services[spotifyindex].datafour)),
+            onCredentialsRefreshed:
+                (spotify.SpotifyApiCredentials newCred) async {
+          print("Refreshing OAuth Data...");
+          services.removeWhere((item) => (item.servicename) == "spotify");
+          VibranceDatabase.instance.removeService("spotify");
+          await VibranceDatabase.instance.addService(
+              1,
+              "spotify",
+              newCred.accessToken.toString(),
+              newCred.refreshToken.toString(),
+              newCred.scopes.toString(),
+              newCred.expiration.toString(),
+              "");
+        });
+        //invokeSpotify(context);
+      } else {
+        authenticateSpotify(context);
+      }
     }
-  } else {
-    authenticateSpotify(context);
+  } on SocketException catch (_) {
+    print('Not Connected to Spotify');
+
+    simpleDialog(context, "No Connection", "Unable to Connect to Spotify",
+        "Check your Settings and try again", "error");
   }
 }
 
 Future openResult(BuildContext context) async {
+  currentDate = DateTime.now();
   dayCounter++;
   print("Mood: $currentMood");
   journal.add(dayCounter - 1);
-  content.clear();
+  memories.clear();
   results.clear();
-  setVibrance(currentMood.toInt());
   await makeDecisions(context);
   showModalBottomSheet(
-      backgroundColor: color,
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       builder: (BuildContext context) {
         return StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
-          return FractionallySizedBox(
-              heightFactor: 0.8,
-              widthFactor: 1.0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  SizedBox(height: 20),
-                  Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                      child: Text("Mood: ${currentMood.toInt()}/6",
-                          style: GoogleFonts.newsCycle(
-                            color: Colors.white,
-                            fontSize: 40,
-                          ))),
-                  Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                      child: Text(peptalk,
-                          style: GoogleFonts.newsCycle(
-                            color: Colors.white,
-                            fontSize: 20,
-                          ))),
-                  SizedBox(height: 15),
-                  Center(
-                      child: SingleChildScrollView(
-                          child: Column(children: [
-                    Wrap(
-                        direction: Axis.horizontal,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            List<Widget>.generate(content.length, (int index) {
-                          print("Displaying " +
-                              content.length.toString() +
-                              " Results...");
-                          return contentEntry(
-                              context,
-                              results[index].contentid,
-                              results[index].contenttype,
-                              results[index].contentargone,
-                              results[index].contentargtwo,
-                              results[index].contentargthree);
-                        }))
-                  ]))),
-                ],
-              ));
+          return Wrap(children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                SizedBox(height: 20),
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    child: Text(peptalk(currentMood.toInt()),
+                        style: GoogleFonts.newsCycle(
+                          color: Colors.white,
+                          fontSize: 25,
+                        ))),
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                    child: Text("Here are some Memories:",
+                        style: GoogleFonts.newsCycle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ))),
+                SizedBox(height: 15),
+                Center(
+                    child: SingleChildScrollView(
+                        child: Column(children: [
+                  Wrap(
+                      direction: Axis.horizontal,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children:
+                          List<Widget>.generate(memories.length, (int index) {
+                        print("Displaying " +
+                            memories.length.toString() +
+                            " Results...");
+                        return memoriesEntry(
+                            context,
+                            results[index].memoriesid,
+                            results[index].memoriescaption,
+                            results[index].memoriestype,
+                            results[index].memoriessubtype,
+                            results[index].memoriesprovider,
+                            results[index].memoriesargone,
+                            results[index].memoriesargtwo,
+                            results[index].memoriesargthree);
+                      })),
+                  SizedBox(height: 30),
+                ]))),
+              ],
+            )
+          ]);
         });
       });
 
-  days.add(DayData(
-      daymood: currentMood,
-      daydate: date,
-      daycolor: color,
-      daynote: "",
-      dayid: dayCounter,
-      daycaption: ""));
-  VibranceDatabase.instance
-      .addDayDB(dayCounter, date, currentMood, color, note);
+  switch (results.length - 1) {
+    case 0:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          note);
+
+      break;
+
+    case 1:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          note);
+
+      break;
+
+    case 2:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          note);
+
+      break;
+
+    case 3:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[3].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[3].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
+          note);
+
+      break;
+
+    case 4:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[3].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[4].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[4].memoriestype].toString())),
+          note);
+
+      break;
+
+    case 5:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[3].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[4].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[5].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daycaption: ""));
+
+      VibranceDatabase.instance.addDayDB(
+          dayCounter,
+          date,
+          currentMood,
+          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[4].memoriestype].toString())),
+          Color(int.parse(memoriesColors[results[5].memoriestype].toString())),
+          note);
+
+      break;
+
+    default:
+      break;
+  }
+
+  noteBuffer = "";
+  textBuffer = "";
 }
 
 @override
@@ -1549,7 +1574,7 @@ class HomePageState extends State<HomePage> {
               SizedBox(height: 10),
               Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                  child: Text(generateQuote(),
+                  child: Text(generateQuoteV2(),
                       style: GoogleFonts.newsCycle(
                         color: Colors.white,
                         fontSize: 16,
@@ -1584,21 +1609,33 @@ class HomePageState extends State<HomePage> {
                                   switch (value) {
                                     case 1:
                                       backgroundcolor = lightMode[900];
+                                      buttoncolor =
+                                          Color.fromRGBO(110, 43, 113, 1);
                                       break;
                                     case 2:
                                       backgroundcolor = lightMode[700];
+                                      buttoncolor =
+                                          Color.fromRGBO(110, 43, 113, 1);
                                       break;
                                     case 3:
                                       backgroundcolor = lightMode[500];
+                                      buttoncolor =
+                                          Color.fromRGBO(110, 43, 113, 1);
                                       break;
                                     case 4:
                                       backgroundcolor = lightMode[100];
+                                      buttoncolor =
+                                          Color.fromRGBO(54, 9, 61, 1);
                                       break;
                                     case 5:
                                       backgroundcolor = lightMode[200];
+                                      buttoncolor =
+                                          Color.fromRGBO(54, 9, 61, 1);
                                       break;
                                     case 6:
                                       backgroundcolor = lightMode[400];
+                                      buttoncolor =
+                                          Color.fromRGBO(54, 9, 61, 1);
                                       break;
                                   }
                                   currentMood = value;
@@ -1616,11 +1653,79 @@ class HomePageState extends State<HomePage> {
                               Colors.white.withOpacity(0.8)),
                           enableFeedback: true),
                       onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                                title: Text('Enter Note', style: dialogHeader),
+                                content: SingleChildScrollView(
+                                  child: ListBody(
+                                    children: <Widget>[
+                                      Text(
+                                          "You can add addtional context of how you're feeling or when this feeling occurred.",
+                                          style: dialogBody),
+                                      Text(""),
+                                      TextField(
+                                          autofocus: true,
+                                          keyboardType: TextInputType.multiline,
+                                          minLines: 1,
+                                          maxLines: 3,
+                                          decoration: InputDecoration(
+                                              fillColor: Colors.grey[300],
+                                              filled: true,
+                                              border:
+                                                  const OutlineInputBorder(),
+                                              hintText: "Text"),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              noteBuffer = value;
+                                              note = noteBuffer;
+                                            });
+                                          }),
+                                    ],
+                                  ),
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text('Cancel', style: dialogBody),
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                  TextButton(
+                                    child: Text('OK', style: dialogBody),
+                                    onPressed: () {
+                                      setState(() {
+                                        if (textBuffer == "") {}
+                                        if (textBuffer == null) {}
+                                        note = noteBuffer;
+                                        Navigator.pop(context);
+                                      });
+                                    },
+                                  )
+                                ]);
+                          },
+                        );
+                      },
+                      child: Text(
+                        "Add Note",
+                        style: TextStyle(color: buttoncolor),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    TextButton(
+                      style: ButtonStyle(
+                          minimumSize:
+                              MaterialStatePropertyAll<Size>(Size(250, 50)),
+                          backgroundColor:
+                              MaterialStatePropertyAll<Color>(buttoncolor),
+                          enableFeedback: true),
+                      onPressed: () {
                         openResult(context);
                       },
                       child: Icon(
                         Icons.check,
-                        color: Color.fromRGBO(110, 43, 113, 1),
+                        color: Colors.white.withOpacity(0.8),
                         size: 30,
                       ),
                     ),
@@ -1641,7 +1746,7 @@ class ResultsPageState extends State<ResultsPage> {
     return StatefulBuilder(
         builder: (BuildContext context, StateSetter setState) {
       return Scaffold(
-          backgroundColor: color,
+          //backgroundColor: color,
           appBar: AppBar(
             title: Text(sku, style: GoogleFonts.newsCycle(color: Colors.white)),
           ),
@@ -1660,7 +1765,7 @@ class ResultsPageState extends State<ResultsPage> {
                   ),
                   ListTile(
                     leading: Icon(Icons.star),
-                    title: Text(peptalk,
+                    title: Text(peptalk(currentMood.toInt()),
                         style: GoogleFonts.newsCycle(
                             color: Colors.grey, fontSize: 16)),
                   ),
@@ -1670,17 +1775,18 @@ class ResultsPageState extends State<ResultsPage> {
             SizedBox(height: 5),
             ListView.builder(
               shrinkWrap: true,
-              itemCount: content.length,
+              itemCount: memories.length,
               itemBuilder: (BuildContext context, int index) {
-                print(content.length);
-                print(results.length);
-                return contentEntry(
+                return memoriesEntry(
                     context,
-                    results[index].contentid,
-                    results[index].contenttype,
-                    results[index].contentargone,
-                    results[index].contentargtwo,
-                    results[index].contentargthree);
+                    results[index].memoriesid,
+                    results[index].memoriescaption,
+                    results[index].memoriestype,
+                    results[index].memoriessubtype,
+                    results[index].memoriesprovider,
+                    results[index].memoriesargone,
+                    results[index].memoriesargtwo,
+                    results[index].memoriesargthree);
               },
             ),
           ])));
@@ -1700,130 +1806,75 @@ class OnboardingPageState extends State<OnboardingPage> {
     //Spotify Components
 
     Future spotifyData(datatype) async {
-      var result;
-      var searchResults = [];
+      if (spotifyApp != null) {
+        var result;
+        List searchResults = [];
 
-      Future pickSpotifyData(item) async {
-        //Dialog where we actually pick our songs or podcasts
+        Future pickSpotifyData(item) async {
+          //Dialog where we actually pick our songs or podcasts
 
-        switch (item) {
-          //Music Components
-          case "Songs":
-            result = await spotifyApp.me.topTracks();
-            print(result.items);
-            result.items?.forEach((item) => searchResults.add(ContentData(
-                contentid: item.id,
-                contenttype: "music",
-                contentcaption: item.name,
-                contentargone: item.artists,
-                contentargtwo: item.name,
-                contentargthree: item.uri)));
-            break;
-          case "Albums":
-            result = await spotifyApp.me.savedAlbums().getPage(10, 0);
-            print(result.items);
-            result.items?.forEach((item) => searchResults.add(ContentData(
-                contentid: item.id,
-                contenttype: "music",
-                contentcaption: item.name,
-                contentargone: item.artists,
-                contentargtwo: item.releaseDate,
-                contentargthree: item.uri)));
-            break;
-          case "Artists":
-            result = await spotifyApp.me.topArtists();
-            print(result);
+          switch (item) {
+            //Music Components
+/*             case "Songs":
+              result = await spotifyApp.me.topTracks();
+              break; */
+            case "Albums":
+              result = await spotifyApp.me.savedAlbums().getPage(10, 0);
+              print(result.items);
+              result.items?.forEach((item) => searchResults.add(MemoriesData(
+                  memoriesid: item.id,
+                  memoriestype: "music",
+                  memoriessubtype: "album",
+                  memoriesprovider: "spotify",
+                  memoriescaption: item.name,
+                  memoriesargone: item.artists,
+                  memoriesargtwo: item.releaseDate,
+                  memoriesargthree: item.uri)));
+              break;
 
-            break;
+            //Podcast Components
+            case "Shows":
+              result = await spotifyApp.me.savedShows().getPage(10, 0);
+              print(result.items);
+              result.items?.forEach((item) => searchResults.add(MemoriesData(
+                  memoriesid: item.id,
+                  memoriestype: "podcast",
+                  memoriessubtype: "show",
+                  memoriesprovider: "spotify",
+                  memoriescaption: item.name,
+                  memoriesargone: item.publisher,
+                  memoriesargtwo: item.description,
+                  memoriesargthree: item.uri)));
+              break;
+          }
 
-          //Podcast Components
-          case "Shows":
-            result = await spotifyApp.me.savedShows().getPage(10, 0);
-            print(result.items);
-            result.items?.forEach((item) => searchResults.add(ContentData(
-                contentid: item.id,
-                contenttype: "podcast",
-                contentcaption: item.name,
-                contentargone: item.publisher,
-                contentargtwo: item.description,
-                contentargthree: item.uri)));
-            break;
-        }
+          List<Widget> spotifyItemList(BuildContext context) {
+            return List<Widget>.generate(result.items.length, (int index) {
+              return SimpleDialogOption(
+                  onPressed: () {
+                    VibranceDatabase.instance.updateMemoriesDB(
+                        searchResults[index].memoriestype,
+                        searchResults[index].memoriessubtype,
+                        "spotify",
+                        searchResults[index].memoriescaption,
+                        searchResults[index].memoriesid);
+                    Navigator.pop(context);
+                  },
+                  child: Text(searchResults[index].memoriescaption,
+                      style: GoogleFonts.newsCycle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      )));
+            });
+          }
 
-        List<Widget> spotifyItemList(BuildContext context) {
-          return List<Widget>.generate(result.items.length, (int index) {
-            return SimpleDialogOption(
-                onPressed: () {
-                  VibranceDatabase.instance.updateContentDB(
-                      searchResults[index].contenttype,
-                      "spotify",
-                      searchResults[index].contentcaption,
-                      searchResults[index].contentid);
-                  Navigator.pop(context);
-                },
-                child: Text(searchResults[index].contentcaption,
-                    style: GoogleFonts.newsCycle(
-                      fontWeight: FontWeight.w600,
-                      color: color.computeLuminance() > 0.5
-                          ? Colors.black
-                          : Colors.white,
-                    )));
-          });
-        }
-
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-                title: Text('Select $item', style: dialogHeader),
-                content: SingleChildScrollView(
-                  child: ListBody(children: spotifyItemList(context)),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    child: Text('OK', style: dialogBody),
-                    onPressed: () {
-                      setState(() {
-                        Navigator.pop(context);
-                      });
-                    },
-                  )
-                ]);
-          },
-        );
-      }
-
-      switch (datatype) {
-        case "music":
           showDialog(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
-                  title: Text('Select Option', style: dialogHeader),
+                  title: Text('Select $item', style: dialogHeader),
                   content: SingleChildScrollView(
-                    child: ListBody(children: [
-                      SimpleDialogOption(
-                        onPressed: () {
-                          pickSpotifyData("Songs");
-                          Navigator.of(context).pop();
-                        },
-                        child: Text('Songs', style: dialogBody),
-                      ),
-                      SimpleDialogOption(
-                        onPressed: () {
-                          pickSpotifyData("Albums");
-                          Navigator.of(context).pop();
-                        },
-                        child: Text('Albums', style: dialogBody),
-                      ),
-                      SimpleDialogOption(
-                        onPressed: () {
-                          pickSpotifyData("Artists");
-                          Navigator.of(context).pop();
-                        },
-                        child: Text('Artists', style: dialogBody),
-                      ),
-                    ]),
+                    child: ListBody(children: spotifyItemList(context)),
                   ),
                   actions: <Widget>[
                     TextButton(
@@ -1837,15 +1888,55 @@ class OnboardingPageState extends State<OnboardingPage> {
                   ]);
             },
           );
+        }
 
-          break;
+        switch (datatype) {
+          case "music":
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                    title: Text('Select Option', style: dialogHeader),
+                    content: SingleChildScrollView(
+                      child: ListBody(children: [
+                        /*                       SimpleDialogOption(
+                          onPressed: () {
+                            pickSpotifyData("Songs");
+                            Navigator.of(context).pop();
+                          },
+                          child: Text('Songs', style: dialogBody),
+                        ), */
+                        SimpleDialogOption(
+                          onPressed: () {
+                            pickSpotifyData("Albums");
+                            Navigator.of(context).pop();
+                          },
+                          child: Text('Albums', style: dialogBody),
+                        ),
+                      ]),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        child: Text('OK', style: dialogBody),
+                        onPressed: () {
+                          setState(() {
+                            Navigator.pop(context);
+                          });
+                        },
+                      )
+                    ]);
+              },
+            );
 
-        case "podcasts":
-          pickSpotifyData("Shows");
-          break;
+            break;
 
-        default:
-          break;
+          case "podcasts":
+            pickSpotifyData("Shows");
+            break;
+
+          default:
+            break;
+        }
       }
     }
 
@@ -1861,9 +1952,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   onPressed: () async {
                     Navigator.of(context).pop();
                     await invokeSpotify(context);
-                    if (spotifyApp != null) {
-                      spotifyData("podcasts");
-                    }
+                    spotifyData("podcasts");
                   },
                   child: Text('Spotify', style: dialogBody),
                 ),
@@ -1910,8 +1999,12 @@ class OnboardingPageState extends State<OnboardingPage> {
                                   setState(() {
                                     if (textBuffer == "") {}
                                     if (textBuffer == null) {}
-                                    VibranceDatabase.instance.updateContentDB(
-                                        "podcast", "rss", textBuffer, "");
+                                    VibranceDatabase.instance.updateMemoriesDB(
+                                        "podcast",
+                                        "show",
+                                        "rss",
+                                        textBuffer,
+                                        "");
                                     Navigator.pop(context);
                                   });
                                 },
@@ -1947,16 +2040,14 @@ class OnboardingPageState extends State<OnboardingPage> {
         return List<Widget>.generate(allCalendarsBuffer.length, (int index) {
           return SimpleDialogOption(
               onPressed: () {
-                VibranceDatabase.instance.updateContentDB(
-                    "event", "", allCalendarsBuffer[index].name, "");
+                VibranceDatabase.instance.updateMemoriesDB("event", "calendar",
+                    "system", allCalendarsBuffer[index].name, "");
                 Navigator.pop(context);
               },
               child: Text(allCalendarsBuffer[index].name,
                   style: GoogleFonts.newsCycle(
                     fontWeight: FontWeight.w600,
-                    color: color.computeLuminance() > 0.5
-                        ? Colors.black
-                        : Colors.white,
+                    color: Colors.white,
                   )));
         });
       }
@@ -1974,8 +2065,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                   child: Text('OK', style: dialogBody),
                   onPressed: () {
                     setState(() {
-                      VibranceDatabase.instance
-                          .updateContentDB("text", "", textBuffer, "");
+                      VibranceDatabase.instance.updateMemoriesDB(
+                          "text", "", "system", textBuffer, "");
                       Navigator.pop(context);
                     });
                   },
@@ -2025,8 +2116,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                     setState(() {
                       if (textBuffer == "") {}
                       if (textBuffer == null) {}
-                      VibranceDatabase.instance
-                          .updateContentDB("text", "", textBuffer, "");
+                      VibranceDatabase.instance.updateMemoriesDB(
+                          "text", "", "system", textBuffer, "");
                       Navigator.pop(context);
                     });
                   },
@@ -2081,8 +2172,10 @@ class OnboardingPageState extends State<OnboardingPage> {
                               });
                             }),
                             child: isRecording
-                                ? Text("Stop Recording")
-                                : Text("Start Recording"),
+                                ? Text("Stop Recording",
+                                    style: TextStyle(color: buttoncolor))
+                                : Text("Start Recording",
+                                    style: TextStyle(color: buttoncolor)),
                           ),
                           SizedBox(height: 10),
                           TextField(
@@ -2121,203 +2214,178 @@ class OnboardingPageState extends State<OnboardingPage> {
       print(selectedPhoto.toString());
       if (selectedPhoto != null) {
         selectedPhotoToData = await selectedPhoto.readAsBytes();
-        VibranceDatabase.instance
-            .updateContentDB("photo", "", "", selectedPhotoToData);
+        VibranceDatabase.instance.updateMemoriesDB(
+            "photo", "photo", "system", "", selectedPhotoToData);
       }
     }
 
     return Scaffold(
         appBar: AppBar(
-          title: Text(sku, style: GoogleFonts.newsCycle(color: Colors.white)),
+          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
         ),
-        body: Column(children: [
-          Card(
+        body: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.sunny),
-                  title: Text('What makes you happy?',
-                      style: GoogleFonts.newsCycle(color: Colors.black)),
-                  subtitle: Text("Add content to inpire you to be your best.",
-                      style: GoogleFonts.newsCycle(color: Colors.grey)),
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+              Card(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.sunny),
+                      title: Text('What makes you happy?',
+                          style: GoogleFonts.newsCycle(color: Colors.black)),
+                      subtitle: Text(
+                          "Add memories to inpire you to be your best.",
+                          style: GoogleFonts.newsCycle(
+                              color: Color.fromRGBO(81, 81, 81, 1))),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.pink,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.music_note),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                            title: Text('Choose Provider', style: dialogHeader),
-                            content: SingleChildScrollView(
-                                child: ListBody(children: <Widget>[
-                              SimpleDialogOption(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  invokeSpotify(context);
-                                  if (spotifyApp != null) {
-                                    spotifyData("music");
-                                  }
-                                },
-                                child: Text('Spotify', style: dialogBody),
-                              ),
-                            ])),
-                            actions: <Widget>[
-                              TextButton(
-                                child: Text('OK', style: dialogBody),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
-                              )
-                            ]);
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(0)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.music_note),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                                title: Text('Choose Provider',
+                                    style: dialogHeader),
+                                content: SingleChildScrollView(
+                                    child: ListBody(children: <Widget>[
+                                  SimpleDialogOption(
+                                    onPressed: () async {
+                                      Navigator.of(context).pop();
+                                      await invokeSpotify(context);
+                                      spotifyData("music");
+                                    },
+                                    child: Text('Spotify', style: dialogBody),
+                                  ),
+                                ])),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text('OK', style: dialogBody),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                  )
+                                ]);
+                          },
+                        );
                       },
-                    );
-                  },
-                  title: Text('Music',
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
-                  subtitle: Text("Songs to give you a jolt of energy.",
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
+                      title: Text('Music',
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                      subtitle: Text("Songs to give you a jolt of energy.",
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.purple,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.podcasts),
-                  onTap: () {
-                    podcastOnboarding();
-                  },
-                  title: Text('Podcasts',
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
-                  subtitle: Text("Podcasts to give you insight.",
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(1)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.podcasts),
+                      onTap: () {
+                        podcastOnboarding();
+                      },
+                      title: Text('Podcasts',
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                      subtitle: Text("Podcasts to give you insight.",
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.yellow,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.calendar_month),
-                  onTap: () {
-                    eventOnboarding();
-                  },
-                  title: Text('Calendar Events',
-                      style: GoogleFonts.newsCycle(color: Colors.black)),
-                  subtitle: Text("Events to look forward to.",
-                      style: GoogleFonts.newsCycle(color: Colors.black)),
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(2)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.calendar_month),
+                      onTap: () {
+                        eventOnboarding();
+                      },
+                      title: Text('Calendar Events',
+                          style: GoogleFonts.newsCycle(color: Colors.black)),
+                      subtitle: Text("Events to look forward to.",
+                          style: GoogleFonts.newsCycle(color: Colors.black)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.blue,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.photo),
-                  onTap: () {
-                    photoOnboarding(context);
-                  },
-                  title: Text('Photos',
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
-                  subtitle: Text("Photos to help you reminance.",
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(3)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.photo),
+                      onTap: () {
+                        photoOnboarding(context);
+                      },
+                      title: Text('Photos',
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                      subtitle: Text("Photos to help you reminance.",
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.green,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.record_voice_over_rounded),
-                  onTap: () {
-                    soundOnboarding(context);
-                  },
-                  title: Text('Voice Notes',
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
-                  subtitle: Text("Voice Notes to motivate you forward.",
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(6)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.record_voice_over_rounded),
+                      onTap: () {
+                        soundOnboarding(context);
+                      },
+                      title: Text('Voice Notes',
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                      subtitle: Text("Voice Notes to motivate you forward.",
+                          style: GoogleFonts.newsCycle(color: Colors.white)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Card(
-            color: Colors.orange,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.note),
-                  onTap: () {
-                    textOnboarding(context);
-                  },
-                  title: Text('Text Notes',
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
-                  subtitle: Text("Text Notes to refect on.",
-                      style: GoogleFonts.newsCycle(
-                          color: color.computeLuminance() > 0.5
-                              ? Colors.black
-                              : Colors.white)),
+              ),
+              Card(
+                color: Color(memoriesColors.values.elementAt(7)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    ListTile(
+                      leading: Icon(Icons.sticky_note_2),
+                      onTap: () {
+                        textOnboarding(context);
+                      },
+                      title: Text('Text Notes',
+                          style: GoogleFonts.newsCycle(color: Colors.black)),
+                      subtitle: Text("Text Notes to refect on.",
+                          style: GoogleFonts.newsCycle(color: Colors.black)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ]));
+              ),
+            ])));
   }
 }
 
@@ -2330,9 +2398,6 @@ class JournalPage extends StatefulWidget {
 class JournalPageState extends State<JournalPage> {
   @override
   Widget build(BuildContext context) {
-    setState(() {
-      entrywidth = MediaQuery.of(context).size.width - 10;
-    });
     void deleteLastEntry() {
       if (dayCounter > 0) {
         days.removeLast();
@@ -2342,6 +2407,360 @@ class JournalPageState extends State<JournalPage> {
         VibranceDatabase.instance.deleteDayDB(dayCounter);
         dayCounter--;
       }
+    }
+
+    Future reenumerateState() async {
+      noteBuffer = "";
+      note = "";
+      dayCounter = 0;
+      days.clear();
+      setState(() {
+        journal = [];
+      });
+      VibranceDatabase.instance.initStatefromDB();
+      await Future.delayed(const Duration(
+          milliseconds:
+              1500)); //It apparently takes 1 second or so for DB to populate State
+      setState(() {
+        int counterBuffer =
+            dayCounter; //I need to freeze the state of the counter so that it doesn't keep iterating on append
+        for (int i = 0; i < counterBuffer; i++) {
+          currentMood = days[i].daymood;
+          date = days[i].daydate;
+
+          journal.add(i - 1);
+          print("Restored Entry: ${i + 1}");
+        }
+        date = currentDate.toString().substring(0, 10);
+        currentMood = 1;
+      });
+    }
+
+//Journal Dialog is long because each of these set of widgets are generated at once for each day in real-time
+    void journalDialog(
+        BuildContext context,
+        String caption,
+        var mood,
+        var date,
+        Color colorone,
+        Color colortwo,
+        Color colorthree,
+        Color colorfour,
+        Color colorfive,
+        Color colorsix,
+        String note,
+        int id) {
+      mood = mood.toInt();
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              title: Text("Mood: $mood/6",
+                  style: GoogleFonts.newsCycle(color: Colors.white)),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    Text(date.toString(),
+                        style: GoogleFonts.newsCycle(
+                            fontWeight: FontWeight.w600, color: Colors.white)),
+                    const Text(""),
+                    Text(note.toString(),
+                        style: GoogleFonts.newsCycle(
+                            fontWeight: FontWeight.w600, color: Colors.white)),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text("Options",
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600, color: Colors.white)),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                            title: Text("Options",
+                                style:
+                                    GoogleFonts.newsCycle(color: Colors.white)),
+                            content: SingleChildScrollView(
+                              child: ListBody(
+                                children: <Widget>[
+                                  SimpleDialogOption(
+                                      child: Text("Copy Entry",
+                                          style: GoogleFonts.newsCycle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white)),
+                                      onPressed: () {
+                                        Clipboard.setData(ClipboardData(
+                                            text:
+                                                "${"Mood: " + mood.toString() + ", " + date} " +
+                                                    note));
+                                      }),
+                                  SimpleDialogOption(
+                                      child: Text("Edit Note",
+                                          style: GoogleFonts.newsCycle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white)),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                                title: Text('Enter New Note',
+                                                    style:
+                                                        GoogleFonts.newsCycle(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color:
+                                                                Colors.white)),
+                                                content: SingleChildScrollView(
+                                                  child: ListBody(
+                                                    children: <Widget>[
+                                                      Text(
+                                                          "You can add addtional context of how you're feeling or when this feeling occurred.",
+                                                          style: GoogleFonts
+                                                              .newsCycle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .white)),
+                                                      Text(""),
+                                                      TextField(
+                                                          autofocus: true,
+                                                          decoration: InputDecoration(
+                                                              fillColor: Colors
+                                                                  .grey[300],
+                                                              filled: true,
+                                                              border:
+                                                                  const OutlineInputBorder(),
+                                                              hintText: note),
+                                                          onChanged: (value) {
+                                                            noteBuffer = value;
+                                                          }),
+                                                    ],
+                                                  ),
+                                                ),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Cancel',
+                                                        style: GoogleFonts
+                                                            .newsCycle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Colors
+                                                                    .white)),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text('OK',
+                                                        style: GoogleFonts
+                                                            .newsCycle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Colors
+                                                                    .white)),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      if (noteBuffer == "") {
+                                                        noteBuffer = "";
+                                                      }
+                                                      noteBuffer ??= "";
+                                                      note = noteBuffer;
+                                                      noteBuffer = "";
+                                                      Navigator.pop(context);
+                                                      VibranceDatabase.instance
+                                                          .updateDaysDB(
+                                                              id,
+                                                              mood,
+                                                              colorone,
+                                                              colortwo,
+                                                              colorthree,
+                                                              colorfour,
+                                                              colorfive,
+                                                              colorsix,
+                                                              note);
+                                                      reenumerateState();
+                                                    },
+                                                  )
+                                                ]);
+                                          },
+                                        );
+                                      }),
+                                  SimpleDialogOption(
+                                      child: Text("Delete Entry",
+                                          style: GoogleFonts.newsCycle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.red[800])),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                                backgroundColor:
+                                                    Colors.orange[800],
+                                                title: Text("Delete Entry?",
+                                                    style: dialogHeader),
+                                                content: SingleChildScrollView(
+                                                  child: ListBody(
+                                                    children: <Widget>[
+                                                      Text(
+                                                          "Are you sure you want to delete this entry?",
+                                                          style: dialogBody),
+                                                    ],
+                                                  ),
+                                                ),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Cancel',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text('OK',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      days.removeAt(id - 1);
+                                                      VibranceDatabase.instance
+                                                          .initDBfromState();
+                                                      reenumerateState();
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  )
+                                                ]);
+                                          },
+                                        );
+                                      }),
+                                ],
+                              ),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text("Dismiss",
+                                    style: GoogleFonts.newsCycle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white)),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              )
+                            ]);
+                      },
+                    );
+                  },
+                ),
+                TextButton(
+                  child: Text("Dismiss",
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600, color: Colors.white)),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                )
+              ]);
+        },
+      );
+    }
+
+    Widget journalEntry(
+        BuildContext context,
+        String caption,
+        final mood,
+        String date,
+        Color colorone,
+        Color colortwo,
+        Color colorthree,
+        Color colorfour,
+        Color colorfive,
+        Color colorsix,
+        String note,
+        int id) {
+      IconData icon = Icons.format_list_bulleted;
+
+      return Card(
+          //color: color,
+          child: Container(
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment(0.5, 1),
+                      colors: [
+                        darkenColor(colorone),
+                        darkenColor(colortwo),
+                        darkenColor(colorthree),
+                        darkenColor(colorfour),
+                        darkenColor(colorfive),
+                        darkenColor(colorsix)
+                      ])),
+              child: ListTile(
+                leading: Icon(
+                  icon,
+                  color: Colors.white,
+                ),
+                title: Text("Mood: ${mood.toInt()}/6",
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    maxLines: 1,
+                    style: GoogleFonts.newsCycle(
+                        color: Colors.white, fontSize: 16)),
+                subtitle: Text(date,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    maxLines: 1,
+                    style: GoogleFonts.newsCycle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                        fontSize: 14)),
+                onTap: () {
+                  journalDialog(
+                      context,
+                      caption,
+                      mood,
+                      date,
+                      colorone,
+                      colortwo,
+                      colorthree,
+                      colorfour,
+                      colorfive,
+                      colorsix,
+                      note,
+                      id);
+                },
+              )));
+    }
+
+    List<Widget> makeJournalEntry(BuildContext context) {
+      return List<Widget>.generate(journal.length, (int index) {
+        return journalEntry(
+            context,
+            days[index].daycaption,
+            days[index].daymood,
+            days[index].daydate,
+            days[index].daycolorone,
+            days[index].daycolortwo,
+            days[index].daycolorthree,
+            days[index].daycolorfour,
+            days[index].daycolorfive,
+            days[index].daycolorsix,
+            days[index].daynote,
+            (index + 1));
+      });
     }
 
     Widget actionMenu() => PopupMenuButton<int>(
@@ -2372,13 +2791,14 @@ class JournalPageState extends State<JournalPage> {
               trailing: actionMenu(),
               title: Text("Journal",
                   style: GoogleFonts.newsCycle(color: Colors.black)),
-              subtitle: Text(DateTime.now().toString().substring(0, 10),
-                  style: GoogleFonts.newsCycle(color: Colors.grey)),
+              subtitle: Text(
+                  "Today is " + DateTime.now().toString().substring(0, 10),
+                  style: GoogleFonts.newsCycle(
+                      color: Color.fromRGBO(81, 81, 81, 1))),
             ),
           ],
         ),
       ),
-      SizedBox(height: 5),
       Wrap(direction: Axis.horizontal, children: makeJournalEntry(context)),
     ]));
   }
@@ -2406,7 +2826,8 @@ class SettingsPageState extends State<SettingsPage> {
               title:
                   Text(sku, style: GoogleFonts.newsCycle(color: Colors.black)),
               subtitle: Text("Version $version, ($release)",
-                  style: GoogleFonts.newsCycle(color: Colors.grey)),
+                  style: GoogleFonts.newsCycle(
+                      color: Color.fromRGBO(81, 81, 81, 1))),
             ),
           ],
         ),
@@ -2422,7 +2843,8 @@ class SettingsPageState extends State<SettingsPage> {
                 title: Text("With 💖 by Kevin George",
                     style: GoogleFonts.newsCycle(color: Colors.black)),
                 subtitle: Text("http://kgeok.github.io/",
-                    style: GoogleFonts.newsCycle(color: Colors.grey)),
+                    style: GoogleFonts.newsCycle(
+                        color: Color.fromRGBO(81, 81, 81, 1))),
                 onTap: () => redirectURL("https://kgeok.github.io"),
               ),
             ],
@@ -2457,14 +2879,14 @@ class SettingsPageState extends State<SettingsPage> {
                 "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
           ),
           ListTile(
-            leading: Icon(Icons.start),
+            leading: Icon(Icons.flag),
             title: Text("Quick Start",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
             onTap: () => helpDialog(context),
           ),
           ListTile(
-            leading: Icon(Icons.add),
-            title: Text("Add Content",
+            leading: Icon(Icons.library_add),
+            title: Text("Add Memories",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
             onTap: () => Navigator.push(
                 context,
@@ -2472,10 +2894,10 @@ class SettingsPageState extends State<SettingsPage> {
                     builder: (context) => const OnboardingPage())),
           ),
           ListTile(
-            leading: Icon(Icons.delete_forever),
-            title: Text("Clear Content",
+            leading: Icon(Icons.playlist_remove),
+            title: Text("Clear Memories",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => clearContentWarning(context),
+            onTap: () => clearMemoriesWarning(context),
           ),
           ListTile(
             leading: Icon(Icons.restore_page),
@@ -2484,16 +2906,10 @@ class SettingsPageState extends State<SettingsPage> {
             onTap: () => clearDaysWarning(context),
           ),
           ListTile(
-            leading: Icon(Icons.supervised_user_circle_sharp),
-            title: Text("Log Out of All Services",
+            leading: Icon(Icons.logout),
+            title: Text("Sign Out of Providers",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => clearServicesWarning(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.settings_applications),
-            title: Text("Test Button",
-                style: GoogleFonts.newsCycle(color: Colors.yellow[900])),
-            onTap: () => invokeSpotify(context),
           ),
         ],
       )),

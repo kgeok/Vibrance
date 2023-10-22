@@ -11,6 +11,14 @@ They will also be loaded into DB on init */
 
 var pathBuffer = "";
 
+String colorToString(Color color) {
+  var colorBuffer = color.toString();
+  colorBuffer = colorBuffer.replaceAll("Color(", "");
+  colorBuffer = colorBuffer.replaceAll(")", "");
+
+  return colorBuffer;
+}
+
 class VibranceDatabase {
   static final VibranceDatabase instance = VibranceDatabase._init();
 
@@ -37,10 +45,10 @@ class VibranceDatabase {
 
   Future createDB(Database db, int version) async {
     db.execute(
-        'CREATE TABLE Content (id INTEGER, type TEXT, subtype TEXT, date TEXT, text MEDIUMTEXT, raw LONGBLOB, weight INT)');
+        'CREATE TABLE Memories (id INTEGER, type TEXT, subtype TEXT, provider TEXT, date TEXT, text MEDIUMTEXT, raw LONGBLOB, weight INT)');
     //db.execute('CREATE TABLE Prefs ()');
     db.execute(
-        'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, color TEXT, notes MEDIUMTEXT)');
+        'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, colorone TEXT, colortwo TEXT, colorthree TEXT, colorfour TEXT, colorfive TEXT, colorsix TEXT, notes MEDIUMTEXT)');
 
     db.execute(
         'CREATE TABLE Configuration (id INTEGER, service MEDIUMTEXT, dataone MEDIUMTEXT, datatwo MEDIUMTEXT, datathree MEDIUMTEXT, datafour MEDIUMTEXT, datafive MEDIUMTEXT)');
@@ -49,15 +57,43 @@ class VibranceDatabase {
     onboarding = 1;
   }
 
-  Future addDayDB(id, date, mood, color, note) async {
+  Future addDayDB(id, date, mood, colorone, colortwo, colorthree, colorfour,
+      colorfive, colorsix, note) async {
     final db = await instance.database;
-    var colorBuffer = color.toString();
-    colorBuffer = colorBuffer.replaceAll("Color(", "");
-    colorBuffer = colorBuffer.replaceAll(")", "");
 
     db.rawInsert(
-        'INSERT INTO Days (id, date, mood, color, notes) VALUES(?, ?, ?, ?, ?)',
-        ['$id', date, mood, colorBuffer, '$note']);
+        'INSERT INTO Days (id, date, mood, colorone, colortwo, colorthree, colorfour, colorfive, colorsix, notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          '$id',
+          date,
+          mood,
+          colorToString(colorone),
+          colorToString(colortwo),
+          colorToString(colorthree),
+          colorToString(colorfour),
+          colorToString(colorfive),
+          colorToString(colorsix),
+          '$note'
+        ]);
+  }
+
+  Future updateDaysDB(id, mood, colorone, colortwo, colorthree, colorfour,
+      colorfive, colorsix, note) async {
+    final db = await instance.database;
+
+    db.rawUpdate(
+        '''UPDATE Days SET mood = ?, colorone = ?, colortwo = ?, colorthree = ?, colorfour = ?, colorfive = ?, colorsix = ?,  notes = ? WHERE id = ?''',
+        [
+          mood,
+          colorToString(colorone),
+          colorToString(colortwo),
+          colorToString(colorthree),
+          colorToString(colorfour),
+          colorToString(colorfive),
+          colorToString(colorsix),
+          note,
+          id
+        ]);
   }
 
   Future closeDB() async {
@@ -77,7 +113,6 @@ class VibranceDatabase {
       //Load User Data
       var counterBuffer = await db.query("Days", columns: ["MAX(id)"]);
       var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
-      var colorBuffer = await db.query("Days", columns: ["color"]);
 
       counter ??= 0;
       dayCounter = counter;
@@ -85,8 +120,29 @@ class VibranceDatabase {
 /*       This part is the star of the show, we are parsing everything from the Days DB
       Then by counter we are attempting, one by one to place everything on the map */
       for (var i = 0; i <= counter - 1; i++) {
-        var colorBuffer2 = colorBuffer[i]["color"].toString();
-        color = Color(int.parse(colorBuffer2));
+        var coloroneBuffer = await db.query("Days", columns: ["colorone"]);
+        var colorone =
+            Color(int.parse(coloroneBuffer[i]["colorone"].toString()));
+
+        var colortwoBuffer = await db.query("Days", columns: ["colortwo"]);
+        var colortwo =
+            Color(int.parse(colortwoBuffer[i]["colortwo"].toString()));
+
+        var colorthreeBuffer = await db.query("Days", columns: ["colorthree"]);
+        var colorthree =
+            Color(int.parse(colorthreeBuffer[i]["colorthree"].toString()));
+
+        var colorfourBuffer = await db.query("Days", columns: ["colorfour"]);
+        var colorfour =
+            Color(int.parse(colorfourBuffer[i]["colorfour"].toString()));
+
+        var colorfiveBuffer = await db.query("Days", columns: ["colorfive"]);
+        var colorfive =
+            Color(int.parse(colorfiveBuffer[i]["colorfive"].toString()));
+
+        var colorsixBuffer = await db.query("Days", columns: ["colorsix"]);
+        var colorsix =
+            Color(int.parse(colorsixBuffer[i]["colorsix"].toString()));
 
         //Parse the Day's date
         var dateBuffer = await db.query("Days", columns: ["date"]);
@@ -103,8 +159,14 @@ class VibranceDatabase {
           dayid: i,
           daydate: date,
           daynote: note,
-          daycolor: color,
+          daycolorone: colorone,
+          daycolortwo: colortwo,
+          daycolorthree: colorthree,
+          daycolorfour: colorfour,
+          daycolorfive: colorfive,
+          daycolorsix: colorsix,
           daymood: mood,
+          daycaption: "",
         ));
       }
     } else {
@@ -119,38 +181,42 @@ class VibranceDatabase {
         i + 1,
         days[i].daydate,
         days[i].daymood,
-        days[i].daycolor,
+        days[i].daycolorone,
+        days[i].daycolortwo,
+        days[i].daycolorthree,
+        days[i].daycolorfour,
+        days[i].daycolorfive,
+        days[i].daycolorsix,
         days[i].daynote,
       );
     }
   }
 
-  Future updateDaysDB(var id, var caption, var note, var color) async {}
-
-  Future updateContentDB(var type, var subtype, var text, var raw) async {
+  Future updateMemoriesDB(
+      var type, var subtype, var provider, var text, var raw) async {
     final db = await instance.database;
 
-    var counterBuffer = await db.query("Content", columns: ["MAX(id)"]);
+    var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
     var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
     counter ??= 0;
     counter = counter + 1;
     const weight = 3;
 
     db.rawInsert(
-        'INSERT INTO Content (id, type, subtype, date, text, raw, weight) VALUES(?, ?, ?, ?, ?, ?, ?)',
-        [counter, type, subtype, date, text, raw, weight]);
+        'INSERT INTO Memories (id, type, subtype, provider, date, text, raw, weight) VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+        [counter, type, subtype, provider, date, text, raw, weight]);
   }
 
-  Future updateWeight(var id, var weight) async {
+  Future updateWeight(id, weight) async {
     final db = await instance.database;
 
     db.rawUpdate(
-        '''UPDATE Content SET weight = ? WHERE id = ?''', [weight, id]);
+        '''UPDATE Memories SET weight = ? WHERE id = ?''', [weight, id]);
   }
 
   Future resetDB() async {
     final db = await instance.database;
-    db.delete("Content");
+    db.delete("Memories");
     db.delete("Prefs");
     db.delete("Days");
   }
@@ -160,9 +226,9 @@ class VibranceDatabase {
     db.delete("Days");
   }
 
-  Future clearContentDB() async {
+  Future clearMemoriesDB() async {
     final db = await instance.database;
-    db.delete("Content");
+    db.delete("Memories");
   }
 
   void upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -203,10 +269,10 @@ class VibranceDatabase {
         ]);
   }
 
-  Future removeService(service) async {
+  Future removeService(String service) async {
     final db = await instance.database;
     db.query("Configuration");
-    db.execute("DELETE FROM Configuration WHERE service = $service");
+    db.execute("DELETE FROM Configuration WHERE service = '$service'");
   }
 
   Future removeAllServices() async {
@@ -220,7 +286,7 @@ class VibranceDatabase {
     var counterBuffer = await db.query("Configuration", columns: ["MAX(id)"]);
     var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
     counter ??= 0;
-
+    services.clear();
     for (var i = 0; i <= counter - 1; i++) {
       var servicenameBuffer =
           await db.query("Configuration", columns: ["service"]);

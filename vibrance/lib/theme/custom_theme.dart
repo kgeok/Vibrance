@@ -28,6 +28,7 @@ class CustomTheme {
       primaryColor: lightMode,
       fontFamily: 'NewsCycle',
       dialogBackgroundColor: lightMode,
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: lightMode),
       sliderTheme: const SliderThemeData(
           thumbColor: Color.fromRGBO(110, 43, 113, 1),
           activeTrackColor: Color.fromRGBO(54, 9, 61, 1),
@@ -55,6 +56,7 @@ class CustomTheme {
       primaryColor: darkMode,
       fontFamily: 'NewsCycle',
       dialogBackgroundColor: darkMode,
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: darkMode),
       sliderTheme: const SliderThemeData(
           activeTrackColor: Color.fromRGBO(110, 43, 113, 1),
           inactiveTrackColor: Color(0xFF8D8E98),
