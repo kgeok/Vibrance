@@ -26,13 +26,13 @@ class VibranceDatabase {
 
   VibranceDatabase._init();
 
-  Future<Database> get database async {
+  Future get database async {
     if (_database != null) return _database!;
     _database = await _initDB('VibranceDB.db');
     return _database!;
   }
 
-  Future<Database> _initDB(String fpath) async {
+  Future _initDB(String fpath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, fpath);
     print(path);
@@ -45,10 +45,10 @@ class VibranceDatabase {
 
   Future createDB(Database db, int version) async {
     db.execute(
-        'CREATE TABLE Memories (id INTEGER, type TEXT, subtype TEXT, provider TEXT, date TEXT, text MEDIUMTEXT, raw LONGBLOB, weight INT)');
-    //db.execute('CREATE TABLE Prefs ()');
+        'CREATE TABLE Memories (id INTEGER, type TEXT, subtype TEXT, provider TEXT, date TEXT, textone MEDIUMTEXT, texttwo MEDIUMTEXT, textthree MEDIUMTEXT, textfour MEDIUMTEXT, rawone LONGBLOB, rawtwo LONGBLOB, rawthree LONGBLOB, rawfour LONGBLOB, weight INT)');
+
     db.execute(
-        'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, colorone TEXT, colortwo TEXT, colorthree TEXT, colorfour TEXT, colorfive TEXT, colorsix TEXT, notes MEDIUMTEXT)');
+        'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, colorone TEXT, colortwo TEXT, colorthree TEXT, colorfour TEXT, colorfive TEXT, colorsix TEXT, notes MEDIUMTEXT, rawone LONGBLOB, rawtwo LONGBLOB, rawthree LONGBLOB)');
 
     db.execute(
         'CREATE TABLE Configuration (id INTEGER, service MEDIUMTEXT, dataone MEDIUMTEXT, datatwo MEDIUMTEXT, datathree MEDIUMTEXT, datafour MEDIUMTEXT, datafive MEDIUMTEXT)');
@@ -82,7 +82,7 @@ class VibranceDatabase {
     final db = await instance.database;
 
     db.rawUpdate(
-        '''UPDATE Days SET mood = ?, colorone = ?, colortwo = ?, colorthree = ?, colorfour = ?, colorfive = ?, colorsix = ?,  notes = ? WHERE id = ?''',
+        '''UPDATE Days SET mood = ?, colorone = ?, colortwo = ?, colorthree = ?, colorfour = ?, colorfive = ?, colorsix = ?, notes = ? WHERE id = ?''',
         [
           mood,
           colorToString(colorone),
@@ -102,17 +102,25 @@ class VibranceDatabase {
   }
 
   Future initStatefromDB() async {
-/*     Let's using this function to fill up the map and Journal when booting the app
+/*  Let's using this function to fill up the map and Journal when booting the app
     Is using all these variables the way that I am the smartest way to do it?
     Probably not but I'll figure something out later maybe type type-casting is the right way to go */
     final db = await instance.database;
 
     if (pathBuffer != null) {
-      //Load Prefs Data
-
       //Load User Data
       var counterBuffer = await db.query("Days", columns: ["MAX(id)"]);
       var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
+
+      var coloroneBuffer = await db.query("Days", columns: ["colorone"]);
+      var colortwoBuffer = await db.query("Days", columns: ["colortwo"]);
+      var colorthreeBuffer = await db.query("Days", columns: ["colorthree"]);
+      var colorfourBuffer = await db.query("Days", columns: ["colorfour"]);
+      var colorfiveBuffer = await db.query("Days", columns: ["colorfive"]);
+      var colorsixBuffer = await db.query("Days", columns: ["colorsix"]);
+      var dateBuffer = await db.query("Days", columns: ["date"]);
+      var noteBuffer = await db.query("Days", columns: ["notes"]);
+      var moodBuffer = await db.query("Days", columns: ["mood"]);
 
       counter ??= 0;
       dayCounter = counter;
@@ -120,39 +128,32 @@ class VibranceDatabase {
 /*       This part is the star of the show, we are parsing everything from the Days DB
       Then by counter we are attempting, one by one to place everything on the map */
       for (var i = 0; i <= counter - 1; i++) {
-        var coloroneBuffer = await db.query("Days", columns: ["colorone"]);
         var colorone =
             Color(int.parse(coloroneBuffer[i]["colorone"].toString()));
 
-        var colortwoBuffer = await db.query("Days", columns: ["colortwo"]);
         var colortwo =
             Color(int.parse(colortwoBuffer[i]["colortwo"].toString()));
 
-        var colorthreeBuffer = await db.query("Days", columns: ["colorthree"]);
         var colorthree =
             Color(int.parse(colorthreeBuffer[i]["colorthree"].toString()));
 
-        var colorfourBuffer = await db.query("Days", columns: ["colorfour"]);
         var colorfour =
             Color(int.parse(colorfourBuffer[i]["colorfour"].toString()));
 
-        var colorfiveBuffer = await db.query("Days", columns: ["colorfive"]);
         var colorfive =
             Color(int.parse(colorfiveBuffer[i]["colorfive"].toString()));
 
-        var colorsixBuffer = await db.query("Days", columns: ["colorsix"]);
         var colorsix =
             Color(int.parse(colorsixBuffer[i]["colorsix"].toString()));
 
         //Parse the Day's date
-        var dateBuffer = await db.query("Days", columns: ["date"]);
+
         var date = dateBuffer[i]["date"].toString();
 
         //Parse the Day's note
-        var noteBuffer = await db.query("Days", columns: ["notes"]);
+
         var note = noteBuffer[i]["notes"].toString();
 
-        var moodBuffer = await db.query("Days", columns: ["mood"]);
         var mood = double.parse(moodBuffer[i]["mood"].toString());
 
         days.add(DayData(
@@ -166,7 +167,7 @@ class VibranceDatabase {
           daycolorfive: colorfive,
           daycolorsix: colorsix,
           daymood: mood,
-          daycaption: "",
+          daytextone: "",
         ));
       }
     } else {
@@ -192,8 +193,8 @@ class VibranceDatabase {
     }
   }
 
-  Future updateMemoriesDB(
-      var type, var subtype, var provider, var text, var raw) async {
+  Future updateMemoriesDB(var type, var subtype, var provider, var textone,
+      var texttwo, var rawone, var rawtwo, var rawthree) async {
     final db = await instance.database;
 
     var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
@@ -203,8 +204,23 @@ class VibranceDatabase {
     const weight = 3;
 
     db.rawInsert(
-        'INSERT INTO Memories (id, type, subtype, provider, date, text, raw, weight) VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
-        [counter, type, subtype, provider, date, text, raw, weight]);
+        'INSERT INTO Memories (id, type, subtype, provider, date, textone, texttwo, textthree, textfour, rawone, rawtwo, rawthree, rawfour, weight) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          counter,
+          type,
+          subtype,
+          provider,
+          date,
+          textone,
+          texttwo,
+          null,
+          null,
+          rawone,
+          rawtwo,
+          rawthree,
+          null,
+          weight
+        ]);
   }
 
   Future updateWeight(id, weight) async {

@@ -24,11 +24,20 @@ Future makeDecisions(BuildContext context) async {
     var providerBuffer = await db.query("Memories", columns: ["provider"]);
     var provider = providerBuffer[i]["provider"].toString();
 
-    var captionBuffer = await db.query("Memories", columns: ["text"]);
-    var caption = captionBuffer[i]["text"].toString();
+    var textoneBuffer = await db.query("Memories", columns: ["textone"]);
+    var textone = textoneBuffer[i]["textone"].toString();
 
-    var argoneBuffer = await db.query("Memories", columns: ["raw"]);
-    var argone = argoneBuffer[i]["raw"];
+    var texttwoBuffer = await db.query("Memories", columns: ["texttwo"]);
+    var texttwo = texttwoBuffer[i]["texttwo"].toString();
+
+    var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
+    var argone = argoneBuffer[i]["rawone"];
+
+    var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
+    var argtwo = argtwoBuffer[i]["rawtwo"];
+
+    var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
+    var argthree = argthreeBuffer[i]["rawthree"];
 
     var weightBuffer = await db.query("Memories", columns: ["weight"]);
     var weight = weightBuffer[i]["weight"];
@@ -37,12 +46,14 @@ Future makeDecisions(BuildContext context) async {
 
     buffer.add(MemoriesData(
         memoriesid: i,
-        memoriescaption: caption,
+        memoriestextone: textone,
+        memoriestexttwo: texttwo,
         memoriestype: type,
         memoriessubtype: subtype,
         memoriesprovider: provider,
         memoriesargone: argone,
-        memoriesargtwo: "",
+        memoriesargtwo: argtwo,
+        memoriesargthree: argthree,
         memoriesweight: weight));
   }
   //print(buffer.length);
@@ -51,10 +62,11 @@ Future makeDecisions(BuildContext context) async {
     print("We have nothing to work with...");
     results.add(MemoriesData(
         memoriesid: 1,
-        memoriescaption: "No Memories",
-        memoriestype: "default",
-        memoriessubtype: "default",
-        memoriesprovider: "system",
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
         memoriesargone: "Go to Settings to add Memories.",
         memoriesargtwo: ""));
     memories.add(0);
@@ -67,30 +79,57 @@ Future makeDecisions(BuildContext context) async {
             "We don't have enough Memories to populate a full list...using whatever we have...");
         for (int i = 0; i <= buffer.length - 1; i++) {
           switch (buffer[i].memoriestype) {
-            case "podcast":
-              if (buffer[i].memoriesprovider == "rss") {
-                probeLatestPodcastRSS(buffer[i].memoriescaption);
-              } else if (buffer[i].memoriesprovider == "spotify") {
+            case "Podcast":
+              if (buffer[i].memoriesprovider == "RSS") {
+                await probeLatestPodcastRSS(
+                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
+              } else if (buffer[i].memoriesprovider == "Spotify") {
                 if (!context.mounted) return;
                 await invokeSpotify(context);
-                probeLatestPodcastSpotify(buffer[i].memoriesargone);
+                await probeLatestPodcastSpotify(
+                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
               }
 
               break;
 
-            case "event":
-              probeLatestEvents(buffer[i].memoriescaption);
+            case "Event":
+              await probeLatestEvents(buffer[i].memoriestextone);
+              break;
+
+            case "Tips":
+              await probeLatestTip();
+              break;
+            case "Music":
+              if (buffer[i].memoriessubtype == "Top Track") {
+                if (!context.mounted) return;
+                await invokeSpotify(context);
+                await probeTopTrackSpotify();
+              } else {
+                results.add(MemoriesData(
+                    memoriesid: buffer[i].memoriesid,
+                    memoriestextone: buffer[i].memoriestextone,
+                    memoriestexttwo: buffer[i].memoriestexttwo,
+                    memoriestype: buffer[i].memoriestype,
+                    memoriessubtype: buffer[i].memoriessubtype,
+                    memoriesprovider: buffer[i].memoriesprovider,
+                    memoriesargone: buffer[i].memoriesargone,
+                    memoriesargtwo: buffer[i].memoriesargtwo,
+                    memoriesargthree: buffer[i].memoriesargthree));
+                memories.add(i);
+              }
               break;
 
             default:
               results.add(MemoriesData(
                   memoriesid: buffer[i].memoriesid,
-                  memoriescaption: buffer[i].memoriescaption,
+                  memoriestextone: buffer[i].memoriestextone,
+                  memoriestexttwo: buffer[i].memoriestexttwo,
                   memoriestype: buffer[i].memoriestype,
                   memoriessubtype: buffer[i].memoriessubtype,
                   memoriesprovider: buffer[i].memoriesprovider,
                   memoriesargone: buffer[i].memoriesargone,
-                  memoriesargtwo: buffer[i].memoriesargtwo));
+                  memoriesargtwo: buffer[i].memoriesargtwo,
+                  memoriesargthree: buffer[i].memoriesargthree));
               memories.add(i);
 
               break;
@@ -100,29 +139,56 @@ Future makeDecisions(BuildContext context) async {
         print("We have plenty of data to work with... populating 6 entries");
         for (int i = 0; i < 6; i++) {
           switch (buffer[i].memoriestype) {
-            case "podcast":
-              if (buffer[i].memoriesprovider == "rss") {
-                probeLatestPodcastRSS(buffer[i].memoriescaption);
-              } else if (buffer[i].memoriesprovider == "spotify") {
+            case "Podcast":
+              if (buffer[i].memoriesprovider == "RSS") {
+                probeLatestPodcastRSS(
+                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
+              } else if (buffer[i].memoriesprovider == "Spotify") {
                 if (!context.mounted) return;
                 await invokeSpotify(context);
-                probeLatestPodcastSpotify(buffer[i].memoriesargone);
+                await probeLatestPodcastSpotify(
+                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
               }
               break;
 
-            case "event":
-              probeLatestEvents(buffer[i].memoriescaption);
+            case "Event":
+              probeLatestEvents(buffer[i].memoriestextone);
+              break;
+
+            case "Tips":
+              await probeLatestTip();
+              break;
+            case "Music":
+              if (buffer[i].memoriessubtype == "Top Track") {
+                if (!context.mounted) return;
+                await invokeSpotify(context);
+                await probeTopTrackSpotify();
+              } else {
+                results.add(MemoriesData(
+                    memoriesid: buffer[i].memoriesid,
+                    memoriestextone: buffer[i].memoriestextone,
+                    memoriestexttwo: buffer[i].memoriestexttwo,
+                    memoriestype: buffer[i].memoriestype,
+                    memoriessubtype: buffer[i].memoriessubtype,
+                    memoriesprovider: buffer[i].memoriesprovider,
+                    memoriesargone: buffer[i].memoriesargone,
+                    memoriesargtwo: buffer[i].memoriesargtwo,
+                    memoriesargthree: buffer[i].memoriesargthree));
+                memories.add(i);
+              }
               break;
 
             default:
               results.add(MemoriesData(
                   memoriesid: buffer[i].memoriesid,
-                  memoriescaption: buffer[i].memoriescaption,
+                  memoriestextone: buffer[i].memoriestextone,
+                  memoriestexttwo: buffer[i].memoriestexttwo,
                   memoriestype: buffer[i].memoriestype,
                   memoriessubtype: buffer[i].memoriessubtype,
                   memoriesprovider: buffer[i].memoriesprovider,
                   memoriesargone: buffer[i].memoriesargone,
-                  memoriesargtwo: buffer[i].memoriesargtwo));
+                  memoriesargtwo: buffer[i].memoriesargtwo,
+                  memoriesargthree: buffer[i].memoriesargthree));
               memories.add(i);
 /*               VibranceDatabase.instance
                   .updateWeight(i, buffer[i].memoriesweight - 1); */
@@ -133,14 +199,70 @@ Future makeDecisions(BuildContext context) async {
     } else {
       print("Everything is not weight of 3, moving on...");
     }
-    print(memories);
-    print(results);
+    // print(memories);
+    // print(results);
     buffer.clear();
   }
 }
 
+Future pullAllMemoriesData() async {
+  if (results.isNotEmpty) {
+    results.clear();
+    memories.clear();
+  }
+  final db = await VibranceDatabase.instance.database;
+
+  var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
+  var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
+  counter ??= 0;
+  print("Pulling all Memories Data...");
+  for (var i = 0; i <= counter - 1; i++) {
+    var typeBuffer = await db.query("Memories", columns: ["type"]);
+    var type = typeBuffer[i]["type"].toString();
+
+    var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
+    var subtype = subtypeBuffer[i]["subtype"].toString();
+
+    var providerBuffer = await db.query("Memories", columns: ["provider"]);
+    var provider = providerBuffer[i]["provider"].toString();
+
+    var textoneBuffer = await db.query("Memories", columns: ["textone"]);
+    var textone = textoneBuffer[i]["textone"].toString();
+
+    var texttwoBuffer = await db.query("Memories", columns: ["texttwo"]);
+    var texttwo = texttwoBuffer[i]["texttwo"].toString();
+
+    var dateBuffer = await db.query("Memories", columns: ["date"]);
+    var date = dateBuffer[i]["date"].toString();
+
+    var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
+    var argone = argoneBuffer[i]["rawone"];
+
+    var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
+    var argtwo = argtwoBuffer[i]["rawtwo"];
+
+    var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
+    var argthree = argthreeBuffer[i]["rawthree"];
+
+    results.add(MemoriesData(
+        memoriesid: i,
+        memoriestextone: textone,
+        memoriestexttwo: texttwo,
+        memoriestype: type,
+        memoriessubtype: subtype,
+        memoriesprovider: provider,
+        memoriesdate: date,
+        memoriesargone: argone,
+        memoriesargtwo: argtwo,
+        memoriesargthree: argthree));
+    memories.add(i);
+/*     print(
+        "${results.elementAt(i).memoriesid}, ${results.elementAt(i).memoriestype}"); */
+  }
+}
+
 //This is for manual intervention and testing
-Future pullMemoriesData(int id) async {
+Future pullSingleMemoriesData(int id) async {
   final db = await VibranceDatabase.instance.database;
 
   var typeBuffer = await db.query("Memories", columns: ["type"]);
@@ -152,20 +274,30 @@ Future pullMemoriesData(int id) async {
   var providerBuffer = await db.query("Memories", columns: ["provider"]);
   var provider = providerBuffer[id - 1]["provider"].toString();
 
-  var captionBuffer = await db.query("Memories", columns: ["text"]);
-  var caption = captionBuffer[id - 1]["text"].toString();
+  var textoneBuffer = await db.query("Memories", columns: ["textone"]);
+  var textone = textoneBuffer[id - 1]["textone"].toString();
 
-  var argoneBuffer = await db.query("Memories", columns: ["raw"]);
-  var argone = argoneBuffer[id - 1]["raw"];
+  var texttwoBuffer = await db.query("Memories", columns: ["textwwo"]);
+  var texttwo = texttwoBuffer[id - 1]["texttwo"].toString();
+  var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
+  var argone = argoneBuffer[id - 1]["rawone"];
+
+  var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
+  var argtwo = argtwoBuffer[id - 1]["rawtwo"];
+
+  var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
+  var argthree = argthreeBuffer[id - 1]["rawthree"];
 
   results.add(MemoriesData(
       memoriesid: id,
-      memoriescaption: caption,
+      memoriestextone: textone,
+      memoriestexttwo: texttwo,
       memoriestype: type,
       memoriessubtype: subtype,
       memoriesprovider: provider,
       memoriesargone: argone,
-      memoriesargtwo: ""));
+      memoriesargtwo: argtwo,
+      memoriesargthree: argthree));
   memories.add(id - 1);
   print(
       "${results.elementAt(id - 1).memoriesid}, ${results.elementAt(id - 1).memoriestype}");

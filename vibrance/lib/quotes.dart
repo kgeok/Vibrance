@@ -1,20 +1,8 @@
 // ignore_for_file: avoid_print
 
-import 'dart:math';
-
 String result = "Let's have a good day.";
 
-String generateQuoteV1() {
-  //Depreciating this Version because of SetState issues, might bring it back
-  Future.delayed(const Duration(seconds: 1));
-  Random random = Random();
-  int randomBuffer = random.nextInt(quotes.length);
-  result =
-      "${quotes.values.elementAt(randomBuffer)} - ${quotes.keys.elementAt(randomBuffer)}";
-  return result;
-}
-
-String generateQuoteV2() {
+String generateQuote() {
   Future.delayed(const Duration(seconds: 1));
   int random = int.parse(DateTime.now().toString().substring(8, 10));
   result =
@@ -65,4 +53,17 @@ var quotes = {
   "Paulo Coelho": "Friendship isn’t a big thing—it’s a million little things.",
   "Hasan Minhaj":
       "Your courage to do what's right has to be greater than your fear of getting hurt"
+};
+
+var tips = {
+  1: "Don't Forget to drink water.",
+  2: "Exercising for 30 mins is important everyday.",
+  3: "Take a moment to breathe, you got this.",
+  4: "Make sure you get a good night of sleep.",
+  5: "Reducing screen time can help sound a mind.",
+  6: "A healthy diet can go a long way.",
+  7: "Meditation can help ease the mind.",
+  8: "A clean environment is a healthy environment.",
+  9: "Journaling can help organize your thoughts.",
+  10: "Take time to talk to a loved one."
 };

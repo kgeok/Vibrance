@@ -42,13 +42,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Project Mirror would like to access Media to add Content</string>
+	<string>Vibrance would like to access Media to add Memories</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Project Mirror would like to access Calendars to add Content</string>
+	<string>Vibrance would like to access Calendars to add Memories</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Project Mirror would like to access Microphone to record Voice Notes</string>
+	<string>Vibrance would like to access Microphone to record Memories</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Project Mirror would like to access Photos to add Content</string>
+	<string>Vibrance would like to access Photos to add Memories</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Vibrance would like to access Camera to add Memories</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

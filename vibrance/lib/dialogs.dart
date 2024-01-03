@@ -35,8 +35,8 @@ void simpleDialog(
       buttonaction2 = "OK";
       dialogColor =
           MediaQuery.of(context).platformBrightness == Brightness.light
-              ? lightMode.withOpacity(0.8)
-              : darkMode.withOpacity(0.8);
+              ? lightMode
+              : darkMode;
       break;
 
     default:
@@ -44,8 +44,8 @@ void simpleDialog(
       buttonaction2 = "OK";
       dialogColor =
           MediaQuery.of(context).platformBrightness == Brightness.light
-              ? lightMode.withOpacity(0.8)
-              : darkMode.withOpacity(0.8);
+              ? lightMode
+              : darkMode;
       break;
   }
   showDialog(

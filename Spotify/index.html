@@ -12,11 +12,22 @@
         left: 50%;
     }
 
-    body {
-        background-color: #6e2b71;
-        text-align: center;
-        color: white;
-        font-family: "News Cycle", sans-serif;
+    @media (prefers-color-scheme: light) {
+        body {
+            background-color: #6e2b71;
+            text-align: center;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        body {
+            background-color: #36093D;
+            text-align: center;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+        }
     }
 </style>
 
