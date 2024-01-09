@@ -20,57 +20,71 @@ class CustomTheme {
   static ThemeData get lightTheme {
     //1
     return ThemeData(
-      //2
-      dialogTheme: DialogTheme(backgroundColor: lightMode),
-      useMaterial3: true,
-      splashColor: darkMode.withOpacity(0.4),
-      primarySwatch: lightMode,
-      primaryColor: lightMode,
-      fontFamily: 'NewsCycle',
-      dialogBackgroundColor: lightMode,
-      bottomSheetTheme: BottomSheetThemeData(backgroundColor: lightMode),
-      sliderTheme: const SliderThemeData(
-          thumbColor: Color.fromRGBO(110, 43, 113, 1),
-          activeTrackColor: Color.fromRGBO(54, 9, 61, 1),
-          inactiveTrackColor: Color(0xFF8D8E98),
-          thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10)),
-      buttonTheme: const ButtonThemeData(),
-      scaffoldBackgroundColor: lightMode,
-      canvasColor: lightMode,
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          unselectedItemColor: Color.fromRGBO(54, 9, 61, 1)),
-      appBarTheme: AppBarTheme(
-        backgroundColor: lightMode,
-        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-    );
+        //2
+        dialogTheme: DialogTheme(backgroundColor: lightMode),
+        useMaterial3: true,
+        splashColor: darkMode.withOpacity(0.4),
+        primarySwatch: lightMode,
+        primaryColor: lightMode,
+        fontFamily: 'NewsCycle',
+        dialogBackgroundColor: lightMode,
+        bottomSheetTheme: BottomSheetThemeData(backgroundColor: lightMode),
+        sliderTheme: const SliderThemeData(
+            thumbColor: Color.fromRGBO(110, 43, 113, 1),
+            activeTrackColor: Color.fromRGBO(54, 9, 61, 1),
+            inactiveTrackColor: Color(0xFF8D8E98),
+            thumbShape: RoundSliderThumbShape(enabledThumbRadius: 10)),
+        buttonTheme: const ButtonThemeData(),
+        scaffoldBackgroundColor: lightMode,
+        canvasColor: lightMode,
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            unselectedItemColor: Color.fromRGBO(54, 9, 61, 1)),
+        appBarTheme: AppBarTheme(
+          backgroundColor: lightMode,
+          titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+            cursorColor: lightMode,
+            selectionColor: lightMode,
+            selectionHandleColor: lightMode),
+        inputDecorationTheme: InputDecorationTheme(
+            activeIndicatorBorder: BorderSide(color: lightMode),
+            border:
+                OutlineInputBorder(borderSide: BorderSide(color: lightMode))));
   }
 
   static ThemeData get darkTheme {
     return ThemeData(
-      dialogTheme: DialogTheme(backgroundColor: darkMode),
-      useMaterial3: true,
-      splashColor: lightMode.withOpacity(0.4),
-      primarySwatch: darkMode,
-      primaryColor: darkMode,
-      fontFamily: 'NewsCycle',
-      dialogBackgroundColor: darkMode,
-      bottomSheetTheme: BottomSheetThemeData(backgroundColor: darkMode),
-      sliderTheme: const SliderThemeData(
-          activeTrackColor: Color.fromRGBO(110, 43, 113, 1),
-          inactiveTrackColor: Color(0xFF8D8E98),
-          thumbColor: Color.fromRGBO(54, 9, 61, 1),
-          thumbShape: RoundSliderThumbShape(enabledThumbRadius: 12)),
-      scaffoldBackgroundColor: darkMode,
-      canvasColor: darkMode,
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          unselectedItemColor: Color.fromRGBO(110, 43, 113, 1)),
-      appBarTheme: AppBarTheme(
-        backgroundColor: darkMode,
-        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-    );
+        dialogTheme: DialogTheme(backgroundColor: darkMode),
+        useMaterial3: true,
+        splashColor: lightMode.withOpacity(0.4),
+        primarySwatch: darkMode,
+        primaryColor: darkMode,
+        fontFamily: 'NewsCycle',
+        dialogBackgroundColor: darkMode,
+        bottomSheetTheme: BottomSheetThemeData(backgroundColor: darkMode),
+        sliderTheme: const SliderThemeData(
+            activeTrackColor: Color.fromRGBO(110, 43, 113, 1),
+            inactiveTrackColor: Color(0xFF8D8E98),
+            thumbColor: Color.fromRGBO(54, 9, 61, 1),
+            thumbShape: RoundSliderThumbShape(enabledThumbRadius: 12)),
+        scaffoldBackgroundColor: darkMode,
+        canvasColor: darkMode,
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+            unselectedItemColor: Color.fromRGBO(110, 43, 113, 1)),
+        appBarTheme: AppBarTheme(
+          backgroundColor: darkMode,
+          titleTextStyle: const TextStyle(color: Colors.white, fontSize: 18),
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+            cursorColor: darkMode,
+            selectionColor: darkMode,
+            selectionHandleColor: darkMode),
+        inputDecorationTheme: InputDecorationTheme(
+            activeIndicatorBorder: BorderSide(color: darkMode),
+            border:
+                OutlineInputBorder(borderSide: BorderSide(color: darkMode))));
   }
 }

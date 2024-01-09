@@ -25,13 +25,14 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MaterialApp(home: MainPage()));
   VibranceDatabase.instance.initStatefromDB();
   populateFromState();
 }
 
 class MainPage extends StatefulWidget {
-  const MainPage({Key? key}) : super(key: key);
+  const MainPage({super.key});
   @override
   State<MainPage> createState() => MyAppState();
   static const MainPage instance = MainPage._init();
@@ -41,7 +42,7 @@ class MainPage extends StatefulWidget {
 GlobalKey<MyAppState> key = GlobalKey();
 const sku = "Vibrance";
 const version = "1.0";
-const release = "Pre-Release, Concept B";
+const release = "Pre-Release, Concept C";
 const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
 const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
 double currentMood = 1;
@@ -73,6 +74,7 @@ Color defaultcolor = Color(0xFF752983);
 var backgroundcolor;
 var buttoncolor = Color(0xFF65496A);
 bool enabled = true;
+bool algorithm = true; //Using this switch in case we need to disable for debug
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -161,6 +163,7 @@ const memoriesColors = {
   "Voice": 0xFF4CAF50,
   "Text": 0xFFFF9800,
   "Tips": 0xFF8C8C8C,
+  "Test": 0xFF0AA000,
   "Default": 0xFF000000
 };
 
@@ -174,6 +177,20 @@ Future redirectURL(String url) async {
   if (!await launchUrl(Uri.parse(url))) {
     print("Unable to Launch URL");
   }
+}
+
+void cleanBuffers() {
+  note = "";
+  text = "";
+  noteBuffer = "";
+  textBuffer = "";
+}
+
+void testOnboarding() {
+  //Use this for Debugging and Development only...
+  VibranceDatabase.instance.updateMemoriesDB("Test", "Test", "System",
+      "Note_One", "Note_Two", "Note_Three", "Note_Four", "Note_Five");
+  print("Sample Entry Added");
 }
 
 //Audio Recording Components
@@ -596,7 +613,6 @@ Widget memoriesEntry(
   switch (type) {
     case "Music":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
-
       return InkWell(
           splashColor: typecolor,
           highlightColor: typecolor,
@@ -630,29 +646,50 @@ Widget memoriesEntry(
                   height: cardheight(),
                   width: cardwidth(),
                   child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text(textone,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: typecolor.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 18)),
-                        Text(texttwo,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: typecolor.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 14)),
-                      ])))));
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // SizedBox(height: cardheight() / 1.75),
+                                Container(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                                    width: 500,
+                                    decoration: ShapeDecoration(
+                                        color: Color(0x33EEEEEE),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.only(
+                                                bottomLeft: Radius.circular(25),
+                                                bottomRight:
+                                                    Radius.circular(25)))),
+                                    child: Column(children: [
+                                      Text(textone,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 18)),
+                                      Text(texttwo,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 14))
+                                    ])),
+                              ]))))));
 
     case "Podcast":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
@@ -692,30 +729,45 @@ Widget memoriesEntry(
                       child: Padding(
                           padding: EdgeInsetsDirectional.all(5),
                           child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text(textone,
-                                    overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
-                                    style: GoogleFonts.newsCycle(
-                                        color:
-                                            typecolor.computeLuminance() > 0.5
-                                                ? Colors.black
-                                                : Colors.white,
-                                        fontSize: 18)),
-                                Text(texttwo,
-                                    overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.newsCycle(
-                                        fontWeight: FontWeight.w500,
-                                        color:
-                                            typecolor.computeLuminance() > 0.5
-                                                ? Colors.black
-                                                : Colors.white,
-                                        fontSize: 14))
+                                Container(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                                    width: 500,
+                                    decoration: ShapeDecoration(
+                                        color: Color(0x33EEEEEE),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.only(
+                                                bottomLeft: Radius.circular(25),
+                                                bottomRight:
+                                                    Radius.circular(25)))),
+                                    child: Column(children: [
+                                      Text(textone,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 18)),
+                                      Text(texttwo,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 14))
+                                    ])),
                               ]))))));
 
     case "Event":
@@ -748,29 +800,50 @@ Widget memoriesEntry(
                   height: cardheight(),
                   width: cardwidth(),
                   child: Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                        Text(textone.toString(),
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                color: typecolor.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 16)),
-                        Text(argone.toString().substring(0, 16),
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                            maxLines: 1,
-                            style: GoogleFonts.newsCycle(
-                                fontWeight: FontWeight.w500,
-                                color: typecolor.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                fontSize: 20))
-                      ])))));
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // SizedBox(height: cardheight() / 1.75),
+                                Container(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                                    width: 500,
+                                    decoration: ShapeDecoration(
+                                        color: Color(0x33EEEEEE),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.only(
+                                                bottomLeft: Radius.circular(25),
+                                                bottomRight:
+                                                    Radius.circular(25)))),
+                                    child: Column(children: [
+                                      Text(textone.toString(),
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 18)),
+                                      Text(argone.toString().substring(0, 16),
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 14))
+                                    ])),
+                              ]))))));
 
     case "Photo":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
@@ -838,29 +911,46 @@ Widget memoriesEntry(
                       child: Padding(
                           padding: EdgeInsetsDirectional.all(5),
                           child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text(textone,
-                                    overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
-                                    style: GoogleFonts.newsCycle(
-                                        color:
-                                            typecolor.computeLuminance() > 0.5
-                                                ? Colors.black
-                                                : Colors.white,
-                                        fontSize: 20)),
-                                Text("Voice Note",
-                                    overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
-                                    style: GoogleFonts.newsCycle(
-                                        fontWeight: FontWeight.w500,
-                                        color:
-                                            typecolor.computeLuminance() > 0.5
-                                                ? Colors.black
-                                                : Colors.white,
-                                        fontSize: 14))
+                                // SizedBox(height: cardheight() / 1.75),
+                                Container(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                                    width: 500,
+                                    decoration: ShapeDecoration(
+                                        color: Color(0x33EEEEEE),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.only(
+                                                bottomLeft: Radius.circular(25),
+                                                bottomRight:
+                                                    Radius.circular(25)))),
+                                    child: Column(children: [
+                                      Text(textone,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 18)),
+                                      Text("Voice Note",
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 14))
+                                    ])),
                               ]))))));
 
     case "Text":
@@ -899,9 +989,10 @@ Widget memoriesEntry(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 Text(textone,
+                                    textAlign: TextAlign.center,
                                     overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
+                                    softWrap: true,
+                                    maxLines: 3,
                                     style: GoogleFonts.newsCycle(
                                         color:
                                             typecolor.computeLuminance() > 0.5
@@ -946,28 +1037,32 @@ Widget memoriesEntry(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 Text(textone,
+                                    textAlign: TextAlign.center,
                                     overflow: TextOverflow.fade,
-                                    softWrap: false,
-                                    maxLines: 1,
+                                    softWrap: true,
+                                    maxLines: 3,
                                     style: GoogleFonts.newsCycle(
                                         color:
                                             typecolor.computeLuminance() > 0.5
                                                 ? Colors.black
                                                 : Colors.white,
-                                        fontSize: 22)),
+                                        fontSize: 16)),
                               ]))))));
 
-    default:
-      var typecolor = Color(int.parse(memoriesColors["Default"].toString()));
+    case "Test":
+      var typecolor = Color(int.parse(memoriesColors[type].toString()));
       return InkWell(
           splashColor: typecolor,
           highlightColor: typecolor,
-          onTap: () {},
+          onTap: () {
+            memoriesDialog(context, type, textone, texttwo, subtype, provider,
+                argone, argtwo, argthree);
+          },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
               child: Container(
-                  padding: const EdgeInsets.fromLTRB(2, 0, 0, 2),
+                  padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
@@ -978,6 +1073,71 @@ Widget memoriesEntry(
                               const Offset(0, 3), // changes position of shadow
                         ),
                       ],
+                      color: typecolor,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30))),
+                  height: cardheight(),
+                  width: cardwidth(),
+                  child: Center(
+                      child: Padding(
+                          padding: EdgeInsetsDirectional.all(5),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // SizedBox(height: cardheight() / 1.75),
+                                Container(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                                    width: 500,
+                                    decoration: ShapeDecoration(
+                                        color: Color(0x33EEEEEE),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.only(
+                                                bottomLeft: Radius.circular(25),
+                                                bottomRight:
+                                                    Radius.circular(25)))),
+                                    child: Column(children: [
+                                      Text(textone,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 18)),
+                                      Text(texttwo,
+                                          textAlign: TextAlign.center,
+                                          overflow: TextOverflow.fade,
+                                          softWrap: false,
+                                          maxLines: 1,
+                                          style: GoogleFonts.newsCycle(
+                                              color:
+                                                  typecolor.computeLuminance() >
+                                                          0.5
+                                                      ? Colors.black
+                                                      : Colors.white,
+                                              fontSize: 14))
+                                    ])),
+                              ]))))));
+
+    default:
+      var typecolor = Colors.transparent;
+      return InkWell(
+          splashColor: typecolor,
+          highlightColor: typecolor,
+          onTap: () {
+            null;
+          },
+          child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 500),
+              opacity: 0.9,
+              child: Container(
+                  padding: const EdgeInsets.fromLTRB(2, 0, 0, 2),
+                  decoration: ShapeDecoration(
                       color: typecolor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30))),
@@ -995,7 +1155,7 @@ Widget memoriesEntry(
                                 color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 16)),
+                                fontSize: 18)),
                         Text("Go to Settings to add Memories.",
                             overflow: TextOverflow.fade,
                             softWrap: false,
@@ -1005,7 +1165,7 @@ Widget memoriesEntry(
                                 color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 14))
+                                fontSize: 16))
                       ])))));
   }
 }
@@ -1262,6 +1422,33 @@ void memoriesDialog(
                 child: ListBody(
                   children: <Widget>[
                     Text(textone, style: dialogBody),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('OK', style: dialogBody),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                )
+              ]);
+        },
+      );
+
+    case "Test":
+      var typecolor = Color(int.parse(memoriesColors[type].toString()));
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              backgroundColor: Colors.grey,
+              title: Text("Test Entry", style: dialogHeader),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    Text(textone, style: dialogBody),
+                    Text(texttwo, style: dialogBody),
                   ],
                 ),
               ),
@@ -1680,7 +1867,7 @@ Future invokeSpotify(BuildContext context) async {
 Future openResult(BuildContext context) async {
   currentDate = DateTime.now();
   dayCounter++;
-  print("Mood: $currentMood");
+  //print("Mood: $currentMood");
   journal.add(dayCounter - 1);
   memories.clear();
   results.clear();
@@ -1958,17 +2145,14 @@ Future openResult(BuildContext context) async {
       break;
   }
 
-  note = "";
-  text = "";
-  noteBuffer = "";
-  textBuffer = "";
+  cleanBuffers();
 }
 
 @override
 void dispose() {}
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
   @override
   State<HomePage> createState() => HomePageState();
 }
@@ -2161,7 +2345,7 @@ class HomePageState extends State<HomePage> {
 }
 
 class ResultsPage extends StatefulWidget {
-  const ResultsPage({Key? key}) : super(key: key);
+  const ResultsPage({super.key});
   @override
   State<ResultsPage> createState() => ResultsPageState();
 }
@@ -2223,7 +2407,7 @@ class ResultsPageState extends State<ResultsPage> {
 }
 
 class OnboardingPage extends StatefulWidget {
-  const OnboardingPage({Key? key}) : super(key: key);
+  const OnboardingPage({super.key});
   @override
   State<OnboardingPage> createState() => OnboardingPageState();
 }
@@ -2570,8 +2754,6 @@ class OnboardingPageState extends State<OnboardingPage> {
                       child: Text('OK', style: dialogBody),
                       onPressed: () {
                         setState(() {
-                          VibranceDatabase.instance.updateMemoriesDB(
-                              "Text", "", "System", textBuffer, "", "", "", "");
                           Navigator.pop(context);
                         });
                       },
@@ -2703,11 +2885,11 @@ class OnboardingPageState extends State<OnboardingPage> {
                       TextButton(
                         child: Text('Cancel', style: dialogBody),
                         onPressed: () async {
-                          await record.stop();
-                          isRecording = false;
                           setState(() {
                             Navigator.pop(context);
                           });
+                          await record.stop();
+                          isRecording = false;
                         },
                       )
                     ]);
@@ -2940,7 +3122,7 @@ class OnboardingPageState extends State<OnboardingPage> {
 }
 
 class JournalPage extends StatefulWidget {
-  const JournalPage({Key? key}) : super(key: key);
+  const JournalPage({super.key});
   @override
   State<JournalPage> createState() => JournalPageState();
 }
@@ -2960,8 +3142,7 @@ class JournalPageState extends State<JournalPage> {
     }
 
     Future reenumerateState() async {
-      noteBuffer = "";
-      note = "";
+      cleanBuffers();
       dayCounter = 0;
       days.clear();
       setState(() {
@@ -3318,7 +3499,7 @@ class JournalPageState extends State<JournalPage> {
           tooltip: "Journal Options",
           itemBuilder: (context) => [
             PopupMenuItem(
-              value: 5,
+              value: 1,
               onTap: deleteLastEntry,
               child: Text(
                 "Delete Last Entry",
@@ -3326,57 +3507,58 @@ class JournalPageState extends State<JournalPage> {
                     fontWeight: FontWeight.w700, color: Colors.red),
               ),
             ),
+            PopupMenuItem(
+              value: 2,
+              onTap: reenumerateState,
+              child: Text(
+                "Refresh Data",
+                style: GoogleFonts.newsCycle(
+                    fontWeight: FontWeight.w700, color: Colors.black),
+              ),
+            ),
           ],
         );
 
-    Widget graphSummary() {
-      var points = days;
+    Widget summaryButton() {
       if (journal.length < 5) {
-        return SizedBox(
-            height: 80,
-            child: Center(
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                  Text("Keep using Vibrance to get a summary",
-                      overflow: TextOverflow.fade,
-                      softWrap: false,
-                      maxLines: 1,
-                      style: GoogleFonts.newsCycle(
-                          color: Colors.black, fontSize: 14)),
-                ])));
+        return Card(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.graphic_eq_outlined),
+                title: Text("Summary",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                subtitle: Text("Keep using Vibrance to see your Summary",
+                    style: GoogleFonts.newsCycle(
+                        color: Color.fromRGBO(81, 81, 81, 1))),
+              ),
+            ],
+          ),
+        );
       } else {
-        return SizedBox(
-            height: 80,
-            child: Center(
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                  Text(
-                      "Average Mood: ${((days[days.length - 1].daymood + days[days.length - 2].daymood + days[days.length - 3].daymood + days[days.length - 4].daymood + days[days.length - 5].daymood) / days.length).toInt()}/6",
-                      overflow: TextOverflow.fade,
-                      softWrap: false,
-                      maxLines: 1,
-                      style: GoogleFonts.newsCycle(
-                          color: Colors.black, fontSize: 18)),
-                  LineChart(
-                    LineChartData(
-                      minX: 0,
-                      maxX: 5,
-                      minY: 0,
-                      maxY: 5,
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: points
-                              .map((point) =>
-                                  FlSpot(point.daymood, point.daymood))
-                              .toList(),
-                          isCurved: false,
-                        )
-                      ],
-                    ),
-                  ),
-                ])));
+        return Card(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.graphic_eq_outlined),
+                trailing: Icon(Icons.chevron_right),
+                title: Text("Summary",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                subtitle: Text("See your Summary",
+                    style: GoogleFonts.newsCycle(
+                        color: Color.fromRGBO(81, 81, 81, 1))),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SummaryPage())),
+              ),
+            ],
+          ),
+        );
       }
     }
 
@@ -3400,30 +3582,165 @@ class JournalPageState extends State<JournalPage> {
           ],
         ),
       ),
-/*       Card(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.graphic_eq_outlined),
-              title: Text("Summary",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              subtitle: Text("Here's a Summary",
-                  style: GoogleFonts.newsCycle(
-                      color: Color.fromRGBO(81, 81, 81, 1))),
-            ),
-            graphSummary(),
-          ],
-        ),
-      ), */
+      summaryButton(),
       Wrap(direction: Axis.horizontal, children: makeJournalEntry(context)),
     ]));
   }
 }
 
+class SummaryPage extends StatefulWidget {
+  const SummaryPage({super.key});
+  @override
+  State<SummaryPage> createState() => SummaryPageState();
+}
+
+class SummaryPageState extends State<SummaryPage> {
+  @override
+  Widget build(BuildContext context) {
+    Widget graphSummary() {
+      if (journal.length < 5) {
+        return SizedBox(
+            height: 200,
+            child: Center(
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                  Text("Keep using Vibrance to get a summary",
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      maxLines: 1,
+                      style: GoogleFonts.newsCycle(
+                          color: Colors.black, fontSize: 14)),
+                ])));
+      } else {
+        List<FlSpot> points = List.generate(5, (int index) {
+          return FlSpot(((days.length - 1) - (index)).toDouble(),
+              days[(days.length - 1) - (index)].daymood);
+        });
+        return SizedBox(
+            height: 300,
+            child: Center(
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                  Text("Mood for Last 5 Journal Entries",
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      maxLines: 1,
+                      style: GoogleFonts.newsCycle(
+                          color: Colors.black, fontSize: 16)),
+                  Container(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 40, 0),
+                      height: 200,
+                      width: MediaQuery.of(context).size.width - 5,
+                      child: LineChart(
+                        LineChartData(
+                          borderData: FlBorderData(
+                              border: const Border(
+                                  bottom: BorderSide(), left: BorderSide())),
+                          minX: journal.length - 5,
+                          maxX: journal.length - 1,
+                          minY: 1,
+                          maxY: 6,
+                          lineBarsData: [
+                            LineChartBarData(
+                                spots: points,
+                                isCurved: true,
+                                barWidth: 5,
+                                color: lightMode,
+                                dotData: FlDotData(show: true)),
+                          ],
+                          gridData: FlGridData(show: false),
+                          titlesData: FlTitlesData(
+                            topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                          ),
+                          lineTouchData: LineTouchData(
+                            enabled: true,
+                            touchTooltipData: LineTouchTooltipData(
+                              tooltipBgColor: lightMode,
+                              tooltipRoundedRadius: 20.0,
+                              showOnTopOfTheChartBoxArea: true,
+                              fitInsideHorizontally: true,
+                              tooltipMargin: 0,
+                              getTooltipItems: (touchedSpots) {
+                                return touchedSpots.map(
+                                  (LineBarSpot touchedSpot) {
+                                    return LineTooltipItem(
+                                      points[touchedSpot.spotIndex]
+                                          .y
+                                          .toStringAsFixed(0),
+                                      GoogleFonts.newsCycle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  },
+                                ).toList();
+                              },
+                            ),
+                          ),
+                        ),
+                      ))
+                ])));
+      }
+    }
+
+    return Scaffold(
+        appBar: AppBar(
+          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
+        ),
+        body: SingleChildScrollView(
+            child: Column(children: [
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.graphic_eq_outlined),
+                  title: Text("Summary",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text("Here's a Summary",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.numbers),
+                  title: Text("Average Mood",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(
+                      "${((days[days.length - 1].daymood + days[days.length - 2].daymood + days[days.length - 3].daymood + days[days.length - 4].daymood + days[days.length - 5].daymood) / days.length).toInt()}/6",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
+          Card(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                graphSummary(),
+              ],
+            ),
+          ),
+        ])));
+  }
+}
+
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  const SettingsPage({super.key});
   @override
   State<SettingsPage> createState() => SettingsPageState();
 }
@@ -3528,6 +3845,12 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text("Sign Out of Providers",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => clearServicesWarning(context),
+          ),
+          ListTile(
+            leading: Icon(Icons.texture_sharp),
+            title: Text("Add Test Entry",
+                style: GoogleFonts.newsCycle(color: Colors.red)),
+            onTap: () => testOnboarding(),
           ),
         ],
       )),

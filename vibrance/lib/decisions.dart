@@ -198,6 +198,14 @@ Future makeDecisions(BuildContext context) async {
       }
     } else {
       print("Everything is not weight of 3, moving on...");
+
+      if (algorithm == true) {
+        print(buffer[0]);
+        print(buffer[1]);
+        buffer.sort(((a, b) => a.memoriesweight.compareto(b.memoriesweight)));
+        print(buffer[0]);
+        print(buffer[1]);
+      }
     }
     // print(memories);
     // print(results);
