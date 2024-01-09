@@ -23,6 +23,7 @@ import 'package:webfeed/webfeed.dart';
 import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:developer';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,8 +74,7 @@ var text;
 Color defaultcolor = Color(0xFF752983);
 var backgroundcolor;
 var buttoncolor = Color(0xFF65496A);
-bool enabled = true;
-bool algorithm = true; //Using this switch in case we need to disable for debug
+bool sorting = true; //Using this switch in case we need to disable for debug
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -340,29 +340,60 @@ Future authenticateSpotify(BuildContext context) async {
     )
     ..loadRequest(Uri.parse(authUri.toString()));
 
-  showModalBottomSheet(
+  showDialog(
       context: context,
-      enableDrag: false,
-      isScrollControlled: true,
-      useRootNavigator: true,
       builder: (BuildContext context) {
-        return FractionallySizedBox(
-            heightFactor: 0.9,
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  IconButton(
-                      onPressed: () {
-                        Navigator.of(context, rootNavigator: true).pop();
-                      },
-                      icon: Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 30,
-                      )),
-                  Expanded(child: WebViewWidget(controller: controller)),
-                ]));
+        return AlertDialog(
+          title: Text(
+            "Sign In Required",
+            style: dialogHeader,
+          ),
+          content: Text(
+            "You will need to sign into Spotify to continue.",
+            style: dialogBody,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel', style: dialogBody),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  showModalBottomSheet(
+                      context: context,
+                      enableDrag: false,
+                      isScrollControlled: true,
+                      useRootNavigator: true,
+                      builder: (BuildContext context) {
+                        return FractionallySizedBox(
+                            heightFactor: 0.9,
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  IconButton(
+                                      onPressed: () {
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
+                                      },
+                                      icon: Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 30,
+                                      )),
+                                  Expanded(
+                                      child: WebViewWidget(
+                                          controller: controller)),
+                                ]));
+                      });
+                },
+                child: Text('OK', style: dialogBody))
+          ],
+        );
       });
 }
 
@@ -2325,14 +2356,9 @@ class HomePageState extends State<HomePage> {
                           backgroundColor:
                               MaterialStatePropertyAll<Color>(buttoncolor),
                           enableFeedback: true),
-                      onPressed: enabled
-                          ? () {
-                              setState(() {
-                                //enabled = false;
-                              });
-                              openResult(context);
-                            }
-                          : null,
+                      onPressed: () {
+                        openResult(context);
+                      },
                       child: Icon(
                         Icons.check,
                         color: Colors.white.withOpacity(0.8),
@@ -2505,7 +2531,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   ),
                   actions: <Widget>[
                     TextButton(
-                      child: Text('OK', style: dialogBody),
+                      child: Text('Dismiss', style: dialogBody),
                       onPressed: () {
                         setState(() {
                           Navigator.pop(context);

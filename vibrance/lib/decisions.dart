@@ -56,7 +56,72 @@ Future makeDecisions(BuildContext context) async {
         memoriesargthree: argthree,
         memoriesweight: weight));
   }
-  //print(buffer.length);
+  void pushContentFromBuffer(i) async {
+    switch (buffer[i].memoriestype) {
+      case "Podcast":
+        if (buffer[i].memoriesprovider == "RSS") {
+          await probeLatestPodcastRSS(
+              buffer[i].memoriesargone, buffer[i].memoriesargtwo);
+        } else if (buffer[i].memoriesprovider == "Spotify") {
+          if (!context.mounted) return;
+          await invokeSpotify(context);
+          await probeLatestPodcastSpotify(
+              buffer[i].memoriesargone, buffer[i].memoriesargtwo);
+        }
+
+        break;
+
+      case "Event":
+        await probeLatestEvents(buffer[i].memoriestextone);
+        break;
+
+      case "Tips":
+        await probeLatestTip();
+        break;
+      case "Music":
+        if (buffer[i].memoriessubtype == "Top Track") {
+          if (!context.mounted) return;
+          await invokeSpotify(context);
+          await probeTopTrackSpotify();
+        } else {
+          results.add(MemoriesData(
+              memoriesid: buffer[i].memoriesid,
+              memoriestextone: buffer[i].memoriestextone,
+              memoriestexttwo: buffer[i].memoriestexttwo,
+              memoriestype: buffer[i].memoriestype,
+              memoriessubtype: buffer[i].memoriessubtype,
+              memoriesprovider: buffer[i].memoriesprovider,
+              memoriesargone: buffer[i].memoriesargone,
+              memoriesargtwo: buffer[i].memoriesargtwo,
+              memoriesargthree: buffer[i].memoriesargthree));
+          memories.add(i);
+        }
+        break;
+
+      default:
+        results.add(MemoriesData(
+            memoriesid: buffer[i].memoriesid,
+            memoriestextone: buffer[i].memoriestextone,
+            memoriestexttwo: buffer[i].memoriestexttwo,
+            memoriestype: buffer[i].memoriestype,
+            memoriessubtype: buffer[i].memoriessubtype,
+            memoriesprovider: buffer[i].memoriesprovider,
+            memoriesargone: buffer[i].memoriesargone,
+            memoriesargtwo: buffer[i].memoriesargtwo,
+            memoriesargthree: buffer[i].memoriesargthree));
+        memories.add(i);
+        if (sorting == true) {
+          if (buffer[i].memoriesweight > 1) {
+            VibranceDatabase.instance
+                .updateWeight(i, buffer[i].memoriesweight - 1);
+          } else {
+            VibranceDatabase.instance
+                .updateWeight(i, buffer[i].memoriesweight + 1);
+          }
+        }
+        break;
+    }
+  }
 
   if (buffer.isEmpty) {
     print("We have nothing to work with...");
@@ -78,133 +143,29 @@ Future makeDecisions(BuildContext context) async {
         print(
             "We don't have enough Memories to populate a full list...using whatever we have...");
         for (int i = 0; i <= buffer.length - 1; i++) {
-          switch (buffer[i].memoriestype) {
-            case "Podcast":
-              if (buffer[i].memoriesprovider == "RSS") {
-                await probeLatestPodcastRSS(
-                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
-              } else if (buffer[i].memoriesprovider == "Spotify") {
-                if (!context.mounted) return;
-                await invokeSpotify(context);
-                await probeLatestPodcastSpotify(
-                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
-              }
-
-              break;
-
-            case "Event":
-              await probeLatestEvents(buffer[i].memoriestextone);
-              break;
-
-            case "Tips":
-              await probeLatestTip();
-              break;
-            case "Music":
-              if (buffer[i].memoriessubtype == "Top Track") {
-                if (!context.mounted) return;
-                await invokeSpotify(context);
-                await probeTopTrackSpotify();
-              } else {
-                results.add(MemoriesData(
-                    memoriesid: buffer[i].memoriesid,
-                    memoriestextone: buffer[i].memoriestextone,
-                    memoriestexttwo: buffer[i].memoriestexttwo,
-                    memoriestype: buffer[i].memoriestype,
-                    memoriessubtype: buffer[i].memoriessubtype,
-                    memoriesprovider: buffer[i].memoriesprovider,
-                    memoriesargone: buffer[i].memoriesargone,
-                    memoriesargtwo: buffer[i].memoriesargtwo,
-                    memoriesargthree: buffer[i].memoriesargthree));
-                memories.add(i);
-              }
-              break;
-
-            default:
-              results.add(MemoriesData(
-                  memoriesid: buffer[i].memoriesid,
-                  memoriestextone: buffer[i].memoriestextone,
-                  memoriestexttwo: buffer[i].memoriestexttwo,
-                  memoriestype: buffer[i].memoriestype,
-                  memoriessubtype: buffer[i].memoriessubtype,
-                  memoriesprovider: buffer[i].memoriesprovider,
-                  memoriesargone: buffer[i].memoriesargone,
-                  memoriesargtwo: buffer[i].memoriesargtwo,
-                  memoriesargthree: buffer[i].memoriesargthree));
-              memories.add(i);
-
-              break;
-          }
+          pushContentFromBuffer(i);
         }
       } else {
         print("We have plenty of data to work with... populating 6 entries");
         for (int i = 0; i < 6; i++) {
-          switch (buffer[i].memoriestype) {
-            case "Podcast":
-              if (buffer[i].memoriesprovider == "RSS") {
-                probeLatestPodcastRSS(
-                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
-              } else if (buffer[i].memoriesprovider == "Spotify") {
-                if (!context.mounted) return;
-                await invokeSpotify(context);
-                await probeLatestPodcastSpotify(
-                    buffer[i].memoriesargone, buffer[i].memoriesargtwo);
-              }
-              break;
-
-            case "Event":
-              probeLatestEvents(buffer[i].memoriestextone);
-              break;
-
-            case "Tips":
-              await probeLatestTip();
-              break;
-            case "Music":
-              if (buffer[i].memoriessubtype == "Top Track") {
-                if (!context.mounted) return;
-                await invokeSpotify(context);
-                await probeTopTrackSpotify();
-              } else {
-                results.add(MemoriesData(
-                    memoriesid: buffer[i].memoriesid,
-                    memoriestextone: buffer[i].memoriestextone,
-                    memoriestexttwo: buffer[i].memoriestexttwo,
-                    memoriestype: buffer[i].memoriestype,
-                    memoriessubtype: buffer[i].memoriessubtype,
-                    memoriesprovider: buffer[i].memoriesprovider,
-                    memoriesargone: buffer[i].memoriesargone,
-                    memoriesargtwo: buffer[i].memoriesargtwo,
-                    memoriesargthree: buffer[i].memoriesargthree));
-                memories.add(i);
-              }
-              break;
-
-            default:
-              results.add(MemoriesData(
-                  memoriesid: buffer[i].memoriesid,
-                  memoriestextone: buffer[i].memoriestextone,
-                  memoriestexttwo: buffer[i].memoriestexttwo,
-                  memoriestype: buffer[i].memoriestype,
-                  memoriessubtype: buffer[i].memoriessubtype,
-                  memoriesprovider: buffer[i].memoriesprovider,
-                  memoriesargone: buffer[i].memoriesargone,
-                  memoriesargtwo: buffer[i].memoriesargtwo,
-                  memoriesargthree: buffer[i].memoriesargthree));
-              memories.add(i);
-/*               VibranceDatabase.instance
-                  .updateWeight(i, buffer[i].memoriesweight - 1); */
-              break;
-          }
+          pushContentFromBuffer(i);
         }
       }
     } else {
       print("Everything is not weight of 3, moving on...");
+      if (sorting == true) {
+        buffer.sort(((b, a) {
+          return (int.parse(a.memoriesweight.toString()))
+              .compareTo(int.parse(b.memoriesweight.toString()));
+        }));
 
-      if (algorithm == true) {
-        print(buffer[0]);
-        print(buffer[1]);
-        buffer.sort(((a, b) => a.memoriesweight.compareto(b.memoriesweight)));
-        print(buffer[0]);
-        print(buffer[1]);
+        for (int i = 0; i < 6; i++) {
+          pushContentFromBuffer(i);
+        }
+      } else {
+        for (int i = 0; i < 6; i++) {
+          pushContentFromBuffer(i);
+        }
       }
     }
     // print(memories);
