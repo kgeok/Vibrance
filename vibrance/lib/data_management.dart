@@ -225,7 +225,7 @@ class VibranceDatabase {
 
   Future updateWeight(id, weight) async {
     final db = await instance.database;
-    print("Updating weight");
+    print("Updating weight: $id, $weight");
     db.rawUpdate(
         '''UPDATE Memories SET weight = ? WHERE id = ?''', [weight, id]);
   }

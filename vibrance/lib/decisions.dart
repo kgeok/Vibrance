@@ -119,6 +119,7 @@ Future makeDecisions(BuildContext context) async {
                 .updateWeight(i, buffer[i].memoriesweight + 1);
           }
         }
+
         break;
     }
   }
@@ -168,8 +169,6 @@ Future makeDecisions(BuildContext context) async {
         }
       }
     }
-    // print(memories);
-    // print(results);
     buffer.clear();
   }
 }
