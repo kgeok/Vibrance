@@ -45,7 +45,7 @@ class VibranceDatabase {
 
   Future createDB(Database db, int version) async {
     db.execute(
-        'CREATE TABLE Memories (id INTEGER, type TEXT, subtype TEXT, provider TEXT, date TEXT, textone MEDIUMTEXT, texttwo MEDIUMTEXT, textthree MEDIUMTEXT, textfour MEDIUMTEXT, rawone LONGBLOB, rawtwo LONGBLOB, rawthree LONGBLOB, rawfour LONGBLOB, weight INT)');
+        'CREATE TABLE Memories (id INTEGER, type TEXT, subtype TEXT, provider TEXT, date TEXT, textone MEDIUMTEXT, texttwo MEDIUMTEXT, textthree MEDIUMTEXT, textfour MEDIUMTEXT, rawone LONGBLOB, rawtwo LONGBLOB, rawthree LONGBLOB, rawfour LONGBLOB, weight FLOAT)');
 
     db.execute(
         'CREATE TABLE Days (id INTEGER, date TEXT, mood INTEGER, colorone TEXT, colortwo TEXT, colorthree TEXT, colorfour TEXT, colorfive TEXT, colorsix TEXT, notes MEDIUMTEXT, rawone LONGBLOB, rawtwo LONGBLOB, rawthree LONGBLOB)');
@@ -228,6 +228,13 @@ class VibranceDatabase {
     print("Updating weight: $id, $weight");
     db.rawUpdate(
         '''UPDATE Memories SET weight = ? WHERE id = ?''', [weight, id]);
+  }
+
+  Future resetWeight() async {
+    final db = await instance.database;
+    db.execute("ALTER TABLE Memories DROP COLUMN weight");
+    db.execute(
+        "ALTER TABLE Memories ADD COLUMN weight FLOAT DEFAULT '3' NOT NULL;");
   }
 
   Future resetDB() async {

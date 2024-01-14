@@ -91,6 +91,7 @@ Future makeDecisions(BuildContext context) async {
               memoriestype: buffer[i].memoriestype,
               memoriessubtype: buffer[i].memoriessubtype,
               memoriesprovider: buffer[i].memoriesprovider,
+              memoriesweight: buffer[i].memoriesweight,
               memoriesargone: buffer[i].memoriesargone,
               memoriesargtwo: buffer[i].memoriesargtwo,
               memoriesargthree: buffer[i].memoriesargthree));
@@ -106,12 +107,13 @@ Future makeDecisions(BuildContext context) async {
             memoriestype: buffer[i].memoriestype,
             memoriessubtype: buffer[i].memoriessubtype,
             memoriesprovider: buffer[i].memoriesprovider,
+            memoriesweight: buffer[i].memoriesweight,
             memoriesargone: buffer[i].memoriesargone,
             memoriesargtwo: buffer[i].memoriesargtwo,
             memoriesargthree: buffer[i].memoriesargthree));
         memories.add(i);
         if (sorting == true) {
-          if (buffer[i].memoriesweight > 1) {
+          if (buffer[i].memoriesweight > 1.1) {
             VibranceDatabase.instance
                 .updateWeight(i, buffer[i].memoriesweight - 1);
           } else {
@@ -119,7 +121,6 @@ Future makeDecisions(BuildContext context) async {
                 .updateWeight(i, buffer[i].memoriesweight + 1);
           }
         }
-
         break;
     }
   }
@@ -155,9 +156,10 @@ Future makeDecisions(BuildContext context) async {
     } else {
       print("Everything is not weight of 3, moving on...");
       if (sorting == true) {
+        //buffer.shuffle();
         buffer.sort(((b, a) {
-          return (int.parse(a.memoriesweight.toString()))
-              .compareTo(int.parse(b.memoriesweight.toString()));
+          return (double.parse(a.memoriesweight.toString()))
+              .compareTo(double.parse(b.memoriesweight.toString()));
         }));
 
         for (int i = 0; i < 6; i++) {
@@ -212,6 +214,9 @@ Future pullAllMemoriesData() async {
     var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
     var argthree = argthreeBuffer[i]["rawthree"];
 
+    var weightBuffer = await db.query("Memories", columns: ["weight"]);
+    var weight = weightBuffer[i]["weight"];
+
     results.add(MemoriesData(
         memoriesid: i,
         memoriestextone: textone,
@@ -219,6 +224,7 @@ Future pullAllMemoriesData() async {
         memoriestype: type,
         memoriessubtype: subtype,
         memoriesprovider: provider,
+        memoriesweight: weight,
         memoriesdate: date,
         memoriesargone: argone,
         memoriesargtwo: argtwo,
@@ -256,6 +262,9 @@ Future pullSingleMemoriesData(int id) async {
   var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
   var argthree = argthreeBuffer[id - 1]["rawthree"];
 
+  var weightBuffer = await db.query("Memories", columns: ["weight"]);
+  var weight = weightBuffer[id - 1]["weight"];
+
   results.add(MemoriesData(
       memoriesid: id,
       memoriestextone: textone,
@@ -263,6 +272,7 @@ Future pullSingleMemoriesData(int id) async {
       memoriestype: type,
       memoriessubtype: subtype,
       memoriesprovider: provider,
+      memoriesweight: weight,
       memoriesargone: argone,
       memoriesargtwo: argtwo,
       memoriesargthree: argthree));

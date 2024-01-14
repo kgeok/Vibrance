@@ -43,7 +43,7 @@ class MainPage extends StatefulWidget {
 GlobalKey<MyAppState> key = GlobalKey();
 const sku = "Vibrance";
 const version = "1.0";
-const release = "Pre-Release, Concept C";
+const release = "Pre-Release, Concept D";
 const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
 const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
 double currentMood = 1;
@@ -109,7 +109,7 @@ class DayData {
 
 class MemoriesData {
 //We're going to be using this as a foundation to structure our content data
-//Memory arguements for any special data that the content has
+//Memory arguments for any special data that the content has
   var memoriesid;
   late var memoriestype;
   late var memoriessubtype;
@@ -648,8 +648,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -728,8 +728,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -807,8 +807,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -882,8 +882,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -915,8 +915,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -990,8 +990,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -1038,8 +1038,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -1086,8 +1086,8 @@ Widget memoriesEntry(
           splashColor: typecolor,
           highlightColor: typecolor,
           onTap: () {
-            memoriesDialog(context, type, textone, texttwo, subtype, provider,
-                argone, argtwo, argthree);
+            memoriesDialog(context, id, type, textone, texttwo, subtype,
+                provider, argone, argtwo, argthree);
           },
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
@@ -1203,6 +1203,7 @@ Widget memoriesEntry(
 
 void memoriesDialog(
     BuildContext context,
+    int id,
     String type,
     String textone,
     String texttwo,
@@ -1211,6 +1212,20 @@ void memoriesDialog(
     var argone,
     var argtwo,
     var argthree) {
+  if (sorting == true) {
+    inspect(results);
+    var index = results.indexWhere((item) => (item.memoriesid) == id);
+    print("Index: $index, ID: $id, Weight: " +
+        results[index].memoriesweight.toString() +
+        " Contents: " +
+        results[index].memoriestextone);
+
+    if (results[index].memoriesweight <= 1.0) {
+      VibranceDatabase.instance
+          .updateWeight(id + 1, results[index].memoriesweight + 0.1);
+    }
+  }
+
   switch (type) {
     case "Music":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
@@ -1574,6 +1589,7 @@ Future manageMemories(BuildContext context) async {
                       onPressed: () {
                         memoriesDialog(
                             context,
+                            results[index].memoriesid,
                             results[index].memoriestype,
                             results[index].memoriestextone,
                             results[index].memoriestexttwo,
@@ -1681,6 +1697,43 @@ void clearServicesWarning(BuildContext context) {
   );
 }
 
+void clearWeightWarning(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+          backgroundColor: Colors.orange[800],
+          title: Text("Reset Memories Sorting?", style: dialogHeader),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                    "Are you sure you want to reset the way memories are sorted?",
+                    style: dialogBody),
+                Text("(Entries will populate from when they were added)",
+                    style: dialogBody),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel', style: dialogBody),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('OK', style: dialogBody),
+              onPressed: () {
+                VibranceDatabase.instance.resetWeight();
+                Navigator.of(context).pop();
+              },
+            )
+          ]);
+    },
+  );
+}
+
 void clearState() {
   journal = [];
   days = [];
@@ -1691,7 +1744,7 @@ void clearState() {
 Future startOnboarding(BuildContext context) async {
   await Future.delayed(const Duration(
       milliseconds:
-          500)); //It apparently takes 1 second or so for DB to populate State
+          1000)); //It apparently takes 1 second or so for DB to populate State
 
   if (onboarding == 1) {
     showModalBottomSheet(
@@ -3859,6 +3912,12 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text("Manage Memories",
                 style: GoogleFonts.newsCycle(color: Colors.black)),
             onTap: () => manageMemories(context),
+          ),
+          ListTile(
+            leading: Icon(Icons.line_weight),
+            title: Text("Reset Memories Sorting",
+                style: GoogleFonts.newsCycle(color: Colors.red)),
+            onTap: () => clearWeightWarning(context),
           ),
           ListTile(
             leading: Icon(Icons.restore_page),
