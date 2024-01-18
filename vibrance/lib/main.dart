@@ -3865,71 +3865,83 @@ class SettingsPageState extends State<SettingsPage> {
           )),
       Card(
           child: Column(
-        mainAxisSize: MainAxisSize.max,
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+            ListTile(
+              leading: Icon(Icons.group),
+              title: Text("Acknowledgements",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => showLicensePage(
+                  context: context,
+                  useRootNavigator: false,
+                  applicationName: sku,
+                  applicationVersion: version,
+                  applicationLegalese: "Kevin George"),
+            ),
+            ListTile(
+              leading: Icon(Icons.phone_callback),
+              title: Text("Additional Resources",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => resourcesDialog(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.lock),
+              title: Text("Privacy Policy",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => redirectURL(
+                  "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
+            ),
+            ListTile(
+              leading: Icon(Icons.flag),
+              title: Text("Quick Start",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => helpDialog(context),
+            ),
+          ])),
+      Card(
+          child: Column(
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+            ListTile(
+              leading: Icon(Icons.library_add),
+              title: Text("Add Memories",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const OnboardingPage())),
+            ),
+            ListTile(
+              leading: Icon(Icons.playlist_add_check_rounded),
+              title: Text("Manage Memories",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => manageMemories(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text("Sign Out of Providers",
+                  style: GoogleFonts.newsCycle(color: Colors.red)),
+              onTap: () => clearServicesWarning(context),
+            ),
+            ListTile(
+              leading: Icon(Icons.line_weight),
+              title: Text("Reset Memories Sorting",
+                  style: GoogleFonts.newsCycle(color: Colors.red)),
+              onTap: () => clearWeightWarning(context),
+            )
+          ])),
+      Card(
+          child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          ListTile(
-            leading: Icon(Icons.group),
-            title: Text("Acknowledgements",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => showLicensePage(
-                context: context,
-                useRootNavigator: false,
-                applicationName: sku,
-                applicationVersion: version,
-                applicationLegalese: "Kevin George"),
-          ),
-          ListTile(
-            leading: Icon(Icons.phone_callback),
-            title: Text("Additional Resources",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => resourcesDialog(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.lock),
-            title: Text("Privacy Policy",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => redirectURL(
-                "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
-          ),
-          ListTile(
-            leading: Icon(Icons.flag),
-            title: Text("Quick Start",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => helpDialog(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.library_add),
-            title: Text("Add Memories",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const OnboardingPage())),
-          ),
-          ListTile(
-            leading: Icon(Icons.playlist_add_check_rounded),
-            title: Text("Manage Memories",
-                style: GoogleFonts.newsCycle(color: Colors.black)),
-            onTap: () => manageMemories(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.line_weight),
-            title: Text("Reset Memories Sorting",
-                style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => clearWeightWarning(context),
-          ),
           ListTile(
             leading: Icon(Icons.restore_page),
             title: Text("Reset Journal",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => clearDaysWarning(context),
-          ),
-          ListTile(
-            leading: Icon(Icons.logout),
-            title: Text("Sign Out of Providers",
-                style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => clearServicesWarning(context),
           ),
           ListTile(
             leading: Icon(Icons.texture_sharp),
