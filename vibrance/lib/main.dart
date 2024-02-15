@@ -74,7 +74,11 @@ var text;
 Color defaultcolor = Color(0xFF752983);
 var backgroundcolor;
 var buttoncolor = Color(0xFF65496A);
+
+//For testing only
+bool journalentries = true;
 bool sorting = true; //Using this switch in case we need to disable for debug
+bool enableCalendars2023OS = true;
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -135,7 +139,7 @@ class MemoriesData {
       this.memoriesargtwo,
       this.memoriesargthree,
       this.memoriesargfour,
-      this.memoriesweight});
+      required this.memoriesweight});
 }
 
 class ServiceData {
@@ -417,16 +421,18 @@ Future probeLatestPodcastRSS(String url, albumart) async {
       // print(albumart);
 
       results.add(MemoriesData(
-          memoriesid: 0,
-          memoriestextone: (content.title).toString(),
-          memoriestexttwo: (content.author).toString(),
-          memoriestype: "Podcast",
-          memoriessubtype: "Episode",
-          memoriesprovider: "RSS",
-          memoriesargone: (latestitem.title).toString(),
-          memoriesargtwo: (latestitem.pubDate).toString(),
-          memoriesargthree: (latestitem.link).toString(),
-          memoriesargfour: albumart));
+        memoriesid: 0,
+        memoriestextone: (content.title).toString(),
+        memoriestexttwo: (content.author).toString(),
+        memoriestype: "Podcast",
+        memoriessubtype: "Episode",
+        memoriesprovider: "RSS",
+        memoriesargone: (latestitem.title).toString(),
+        memoriesargtwo: (latestitem.pubDate).toString(),
+        memoriesargthree: (latestitem.link).toString(),
+        memoriesargfour: albumart,
+        memoriesweight: 0,
+      ));
 
       addMemories();
     }
@@ -439,16 +445,18 @@ Future probeLatestTip() async {
   Random random = Random();
   int randomBuffer = random.nextInt(tips.length);
   results.add(MemoriesData(
-      memoriesid: 0,
-      memoriestextone: tips.values.elementAt(randomBuffer),
-      memoriestexttwo: "",
-      memoriestype: "Tips",
-      memoriessubtype: "Wellness",
-      memoriesprovider: "System",
-      memoriesargone: tips.keys.elementAt(randomBuffer),
-      memoriesargtwo: "",
-      memoriesargthree: "",
-      memoriesargfour: ""));
+    memoriesid: 0,
+    memoriestextone: tips.values.elementAt(randomBuffer),
+    memoriestexttwo: "",
+    memoriestype: "Tips",
+    memoriessubtype: "Wellness",
+    memoriesprovider: "System",
+    memoriesargone: tips.keys.elementAt(randomBuffer),
+    memoriesargtwo: "",
+    memoriesargthree: "",
+    memoriesargfour: "",
+    memoriesweight: 3.0,
+  ));
 
   addMemories();
 }
@@ -462,17 +470,19 @@ Future probeTopTrackSpotify() async {
         var result;
         result = await spotifyApp.me.topTracks().first();
         results.add(MemoriesData(
-            memoriesid: 0,
-            memoriestextone: result.items?.first.name,
-            memoriestexttwo: result.items?.first.artists[0].name,
-            memoriestype: "Music",
-            memoriessubtype: "Track",
-            memoriesprovider: "Spotify",
-            memoriesargone: result.items?.first.id,
-            memoriesargtwo:
-                await getAlbumArt("Spotify", result.items?.first.id, "Track"),
-            memoriesargthree: result.items?.first.uri,
-            memoriesargfour: ""));
+          memoriesid: 0,
+          memoriestextone: result.items?.first.name,
+          memoriestexttwo: result.items?.first.artists[0].name,
+          memoriestype: "Music",
+          memoriessubtype: "Track",
+          memoriesprovider: "Spotify",
+          memoriesargone: result.items?.first.id,
+          memoriesargtwo:
+              await getAlbumArt("Spotify", result.items?.first.id, "Track"),
+          memoriesargthree: result.items?.first.uri,
+          memoriesargfour: "",
+          memoriesweight: 0,
+        ));
 
         addMemories();
       }
@@ -493,16 +503,18 @@ Future probeLatestPodcastSpotify(String id, albumart) async {
         var episode = spotifyApp.shows.episodes(id);
         var latestitem = (await episode.first()).items!.first;
         results.add(MemoriesData(
-            memoriesid: 0,
-            memoriestextone: (show.name).toString(),
-            memoriestexttwo: (show.publisher).toString(),
-            memoriestype: "Podcast",
-            memoriessubtype: "Episode",
-            memoriesprovider: "Spotify",
-            memoriesargone: (latestitem.name).toString(),
-            memoriesargtwo: (latestitem.releaseDate).toString(),
-            memoriesargthree: id,
-            memoriesargfour: albumart));
+          memoriesid: 0,
+          memoriestextone: (show.name).toString(),
+          memoriestexttwo: (show.publisher).toString(),
+          memoriestype: "Podcast",
+          memoriessubtype: "Episode",
+          memoriesprovider: "Spotify",
+          memoriesargone: (latestitem.name).toString(),
+          memoriesargtwo: (latestitem.releaseDate).toString(),
+          memoriesargthree: id,
+          memoriesargfour: albumart,
+          memoriesweight: 0,
+        ));
         memories.add(0);
       }
     }
@@ -552,40 +564,50 @@ Future getAlbumArt(String provider, String id, String type) async {
 
 Future probeLatestEvents(String name) async {
   try {
-    //We have to use this function to pull the events out of the given calendar
-    final startDate = DateTime.now().add(const Duration(days: -1));
-    final endDate = DateTime.now().add(const Duration(days: 2));
-    var eventparams =
-        RetrieveEventsParams(startDate: startDate, endDate: endDate);
     //Because allCalendars is locked, lets make a buffer to store the data that we can touch
-    allCalendars = await deviceCalendarPlugin.requestPermissions();
-    allCalendars = await deviceCalendarPlugin.retrieveCalendars();
-    allCalendarsBuffer = allCalendars?.data;
+    if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
+      //We have to use this function to pull the events out of the given calendar
+      final startDate = DateTime.now().add(const Duration(days: -1));
+      final endDate = DateTime.now().add(const Duration(days: 2));
+      var eventparams =
+          RetrieveEventsParams(startDate: startDate, endDate: endDate);
+      allCalendars = await deviceCalendarPlugin.retrieveCalendars();
+      allCalendarsBuffer = allCalendars?.data;
 
-    //Since it's not so easy to just pull the Memoriess using IndexOf or something else, we have to just traverse the array and match it to the given calendar
-    for (int i = 0; i < (allCalendarsBuffer.length); i++) {
-      if (allCalendarsBuffer[i].name == name) {
-        var events = await deviceCalendarPlugin.retrieveEvents(
-            allCalendarsBuffer[i].id, eventparams);
-        var eventsBuffer = events.data;
+      //Since it's not so easy to just pull the Memories using IndexOf or something else, we have to just traverse the array and match it to the given calendar
+      for (int i = 0; i < (allCalendarsBuffer.length); i++) {
+        if (allCalendarsBuffer[i].name == name) {
+          var events = await deviceCalendarPlugin.retrieveEvents(
+              allCalendarsBuffer[i].id, eventparams);
+          var eventsBuffer = events.data;
 
-        if (eventsBuffer != null) {
-          for (int i = 0; i < eventsBuffer.length; i++) {
-            //We're only going to poll three events
-            // print(eventsBuffer[i].title);
-            // print(eventsBuffer[i].start);
+          if (eventsBuffer != null) {
+            for (int i = 0; i < eventsBuffer.length; i++) {
+              //We're only going to poll three events
+              // print(eventsBuffer[i].title);
+              // print(eventsBuffer[i].start);
 
-            results.add(MemoriesData(
+              results.add(MemoriesData(
                 memoriesid: i,
                 memoriestype: "Event",
                 memoriessubtype: "Event",
                 memoriesprovider: "System",
                 memoriestextone: (eventsBuffer[i].title).toString(),
                 memoriestexttwo: (eventsBuffer[i].start).toString(),
-                memoriesargone: name));
-            memories.add(i);
+                memoriesargone: name,
+                memoriesweight: 3.0,
+              ));
+              memories.add(i);
+            }
           }
         }
+      }
+    } else {
+      allCalendars = await deviceCalendarPlugin.requestPermissions();
+      if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
+        probeLatestEvents(name);
+      } else {
+        print("Unable to retrieve event");
       }
     }
   } catch (e) {
@@ -603,9 +625,10 @@ void populateFromState() async {
   for (int i = 0; i < counterBuffer; i++) {
     currentMood = days[i].daymood;
     date = days[i].daydate;
-
-    journal.add(i - 1);
-    print("Restored Entry: ${i + 1}");
+    if (journalentries == true) {
+      journal.add(i - 1);
+      print("Restored Entry: ${i + 1}");
+    }
   }
   date = currentDate.toString().substring(0, 10);
   currentMood = 1;
@@ -654,7 +677,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -734,7 +759,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -813,7 +840,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -888,7 +917,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInSine,
                 padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                 decoration: ShapeDecoration(
                     shadows: [
@@ -921,7 +952,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -996,7 +1029,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -1044,7 +1079,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -1092,7 +1129,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(1, 0, 0, 1),
                   decoration: ShapeDecoration(
                       shadows: [
@@ -1166,7 +1205,9 @@ Widget memoriesEntry(
           child: AnimatedOpacity(
               duration: const Duration(milliseconds: 500),
               opacity: 0.9,
-              child: Container(
+              child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInSine,
                   padding: const EdgeInsets.fromLTRB(2, 0, 0, 2),
                   decoration: ShapeDecoration(
                       color: typecolor,
@@ -1222,7 +1263,7 @@ void memoriesDialog(
 
     if (results[index].memoriesweight <= 1.0) {
       VibranceDatabase.instance
-          .updateWeight(id + 1, results[index].memoriesweight + 0.1);
+          .updateWeight(id, results[index].memoriesweight + 0.1);
     }
   }
 
@@ -1573,90 +1614,95 @@ void clearDaysWarning(BuildContext context) {
 
 Future manageMemories(BuildContext context) async {
   await pullAllMemoriesData();
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-          title: Text("Manage Memories", style: dialogHeader),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                SingleChildScrollView(
-                    child: ListBody(
-                        children:
-                            List<Widget>.generate(memories.length, (int index) {
-                  return SimpleDialogOption(
-                      onPressed: () {
-                        memoriesDialog(
-                            context,
-                            results[index].memoriesid,
-                            results[index].memoriestype,
-                            results[index].memoriestextone,
-                            results[index].memoriestexttwo,
-                            results[index].memoriessubtype,
-                            results[index].memoriesprovider,
-                            results[index].memoriesargone,
-                            results[index].memoriesargtwo,
-                            results[index].memoriesargthree);
-                      },
-                      child: Text(
-                          (results[index].memoriestype) +
-                              ", Added: " +
-                              results[index].memoriesdate,
-                          style: dialogBody));
-                })))
-              ],
+  if (memories.isNotEmpty) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+            title: Text("Manage Memories", style: dialogHeader),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: <Widget>[
+                  SingleChildScrollView(
+                      child: ListBody(
+                          children: List<Widget>.generate(memories.length,
+                              (int index) {
+                    return SimpleDialogOption(
+                        onPressed: () {
+                          memoriesDialog(
+                              context,
+                              results[index].memoriesid,
+                              results[index].memoriestype,
+                              results[index].memoriestextone,
+                              results[index].memoriestexttwo,
+                              results[index].memoriessubtype,
+                              results[index].memoriesprovider,
+                              results[index].memoriesargone,
+                              results[index].memoriesargtwo,
+                              results[index].memoriesargthree);
+                        },
+                        child: Text(
+                            (results[index].memoriestype) +
+                                ", Added: " +
+                                results[index].memoriesdate,
+                            style: dialogBody));
+                  })))
+                ],
+              ),
             ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Delete All', style: dialogBody),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                        backgroundColor: Colors.orange[800],
-                        title: Text("Clear Memories?", style: dialogHeader),
-                        content: SingleChildScrollView(
-                          child: ListBody(
-                            children: <Widget>[
-                              Text("Are you sure you want to clear Memories?",
-                                  style: dialogBody),
-                              Text("(This action cannot be reversed)",
-                                  style: dialogBody),
-                            ],
+            actions: <Widget>[
+              TextButton(
+                child: Text('Delete All', style: dialogBody),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                          backgroundColor: Colors.orange[800],
+                          title: Text("Clear Memories?", style: dialogHeader),
+                          content: SingleChildScrollView(
+                            child: ListBody(
+                              children: <Widget>[
+                                Text("Are you sure you want to clear Memories?",
+                                    style: dialogBody),
+                                Text("(This action cannot be reversed)",
+                                    style: dialogBody),
+                              ],
+                            ),
                           ),
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                            child: Text('Cancel', style: dialogBody),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                          TextButton(
-                            child: Text('OK', style: dialogBody),
-                            onPressed: () {
-                              VibranceDatabase.instance.clearMemoriesDB();
-                              Navigator.of(context).pop();
-                              Navigator.of(context).pop();
-                            },
-                          )
-                        ]);
-                  },
-                );
-              },
-            ),
-            TextButton(
-              child: Text('OK', style: dialogBody),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            )
-          ]);
-    },
-  );
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text('Cancel', style: dialogBody),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                            TextButton(
+                              child: Text('OK', style: dialogBody),
+                              onPressed: () {
+                                VibranceDatabase.instance.clearMemoriesDB();
+                                Navigator.of(context).pop();
+                                Navigator.of(context).pop();
+                              },
+                            )
+                          ]);
+                    },
+                  );
+                },
+              ),
+              TextButton(
+                child: Text('OK', style: dialogBody),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              )
+            ]);
+      },
+    );
+  } else {
+    simpleDialog(context, "No Memories", "There are no Memories to manage",
+        "Add some Memories to get started", "info");
+  }
 }
 
 void clearServicesWarning(BuildContext context) {
@@ -1708,9 +1754,10 @@ void clearWeightWarning(BuildContext context) {
             child: ListBody(
               children: <Widget>[
                 Text(
-                    "Are you sure you want to reset the way memories are sorted?",
+                    "Memories are smart sorted based on history and interaction",
                     style: dialogBody),
-                Text("(Entries will populate from when they were added)",
+                Text(
+                    "Are you sure you want to reset the way memories are sorted?",
                     style: dialogBody),
               ],
             ),
@@ -1905,7 +1952,6 @@ Future invokeSpotify(BuildContext context) async {
       //Let's grab the Services data from the DB and put it into our ServiceData object based List
       await VibranceDatabase.instance.provideServiceData();
       //Let's find out which item in the list is the Spotify Cred Data...
-
       var spotifyindex =
           services.indexWhere((item) => (item.servicename) == "Spotify");
       //If the result is not empty, which is considered a -1 index result, we can move forward
@@ -1952,7 +1998,9 @@ Future openResult(BuildContext context) async {
   currentDate = DateTime.now();
   dayCounter++;
   //print("Mood: $currentMood");
-  journal.add(dayCounter - 1);
+  if (journalentries == true) {
+    journal.add(dayCounter - 1);
+  }
   memories.clear();
   results.clear();
   await makeDecisions(context);
@@ -1993,7 +2041,7 @@ Future openResult(BuildContext context) async {
                       runSpacing: 8,
                       children:
                           List<Widget>.generate(memories.length, (int index) {
-/*                         print("Displaying " +
+                        /*  print("Displaying " +
                             memories.length.toString() +
                             " Results..."); */
                         if (results[index].memoriestype == null) {
@@ -2041,18 +2089,25 @@ Future openResult(BuildContext context) async {
           dayid: dayCounter,
           daytextone: ""));
 
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            note);
+      }
       break;
 
     case 1:
@@ -2074,19 +2129,25 @@ Future openResult(BuildContext context) async {
           daynote: note,
           dayid: dayCounter,
           daytextone: ""));
-
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            note);
+      }
       break;
 
     case 2:
@@ -2109,18 +2170,25 @@ Future openResult(BuildContext context) async {
           dayid: dayCounter,
           daytextone: ""));
 
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            note);
+      }
       break;
 
     case 3:
@@ -2143,18 +2211,25 @@ Future openResult(BuildContext context) async {
           dayid: dayCounter,
           daytextone: ""));
 
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[3].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[3].memoriestype].toString())),
+            note);
+      }
       break;
 
     case 4:
@@ -2177,18 +2252,25 @@ Future openResult(BuildContext context) async {
           dayid: dayCounter,
           daytextone: ""));
 
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[4].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[3].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[4].memoriestype].toString())),
+            note);
+      }
       break;
 
     case 5:
@@ -2211,18 +2293,25 @@ Future openResult(BuildContext context) async {
           dayid: dayCounter,
           daytextone: ""));
 
-      VibranceDatabase.instance.addDayDB(
-          dayCounter,
-          date,
-          currentMood,
-          Color(int.parse(memoriesColors[results[0].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[1].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[2].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[3].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[4].memoriestype].toString())),
-          Color(int.parse(memoriesColors[results[5].memoriestype].toString())),
-          note);
-
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[3].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[4].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[5].memoriestype].toString())),
+            note);
+      }
       break;
 
     default:
@@ -2507,44 +2596,50 @@ class OnboardingPageState extends State<OnboardingPage> {
             case "Recently Played":
               result = await spotifyApp.me.recentlyPlayed(limit: 5).first();
               result.items?.forEach((item) => searchResults.add(MemoriesData(
-                  memoriesid: item.track.id,
-                  memoriestype: "Music",
-                  memoriessubtype: "Track",
-                  memoriesprovider: "Spotify",
-                  memoriestextone: item.track.name,
-                  memoriestexttwo: item.track.artists[0].name,
-                  memoriesargone: "",
-                  memoriesargtwo: item.track.uri,
-                  memoriesargthree: "")));
+                    memoriesid: item.track.id,
+                    memoriestype: "Music",
+                    memoriessubtype: "Track",
+                    memoriesprovider: "Spotify",
+                    memoriestextone: item.track.name,
+                    memoriestexttwo: item.track.artists[0].name,
+                    memoriesargone: "",
+                    memoriesargtwo: item.track.uri,
+                    memoriesargthree: "",
+                    memoriesweight: 0,
+                  )));
               break;
 
             case "Albums":
               result = await spotifyApp.me.savedAlbums().getPage(10, 0);
               result.items?.forEach((item) => searchResults.add(MemoriesData(
-                  memoriesid: item.id,
-                  memoriestype: "Music",
-                  memoriessubtype: "Album",
-                  memoriesprovider: "Spotify",
-                  memoriestextone: item.name,
-                  memoriestexttwo: item.artists[0].name,
-                  memoriesargone: item.releaseDate,
-                  memoriesargtwo: item.uri,
-                  memoriesargthree: "")));
+                    memoriesid: item.id,
+                    memoriestype: "Music",
+                    memoriessubtype: "Album",
+                    memoriesprovider: "Spotify",
+                    memoriestextone: item.name,
+                    memoriestexttwo: item.artists[0].name,
+                    memoriesargone: item.releaseDate,
+                    memoriesargtwo: item.uri,
+                    memoriesargthree: "",
+                    memoriesweight: 0,
+                  )));
               break;
 
             //Podcast Components
             case "Shows":
               result = await spotifyApp.me.savedShows().getPage(10, 0);
               result.items?.forEach((item) => searchResults.add(MemoriesData(
-                  memoriesid: item.id,
-                  memoriestype: "Podcast",
-                  memoriessubtype: "Show",
-                  memoriesprovider: "Spotify",
-                  memoriestextone: item.name,
-                  memoriestexttwo: item.publisher,
-                  memoriesargone: item.description,
-                  memoriesargtwo: item.uri,
-                  memoriesargthree: "")));
+                    memoriesid: item.id,
+                    memoriestype: "Podcast",
+                    memoriessubtype: "Show",
+                    memoriesprovider: "Spotify",
+                    memoriestextone: item.name,
+                    memoriestexttwo: item.publisher,
+                    memoriesargone: item.description,
+                    memoriesargtwo: item.uri,
+                    memoriesargthree: "",
+                    memoriesweight: 0,
+                  )));
               break;
           }
 
@@ -2779,18 +2874,20 @@ class OnboardingPageState extends State<OnboardingPage> {
     }
 
     Future eventOnboarding() async {
-      if (Platform.isIOS &&
-          Platform.operatingSystemVersion.startsWith("Version 17")) {
+/*       if (Platform.isIOS &&
+          Platform.operatingSystemVersion.startsWith("Version 17") &&
+          enableCalendars2023OS == false) {
         simpleDialog(
             context,
             "Unable to Access Calendars",
             "Calendar Support is Currently Unavailable on iOS 17, iPadOS 17 and macOS Sonoma",
             "Support will be added at a later time. ",
             "error");
-      } else {
-        try {
-          //Because allCalendars is locked, lets make a buffer to store the data that we can touch
-          allCalendars = await deviceCalendarPlugin.requestPermissions();
+      } else { */
+      try {
+        print((await deviceCalendarPlugin.hasPermissions()).data);
+        //Because allCalendars is locked, lets make a buffer to store the data that we can touch
+        if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
           allCalendars = await deviceCalendarPlugin.retrieveCalendars();
           // print(allCalendars.data);
           allCalendarsBuffer = allCalendars?.data;
@@ -2840,11 +2937,19 @@ class OnboardingPageState extends State<OnboardingPage> {
                   ]);
             },
           );
-        } catch (e) {
-          //print(e);
-          simpleDialog(context, "Unable to Retrieve Calendars", "Error: $e",
-              "Check your Settings and try again", "error");
+        } else {
+          allCalendars = await deviceCalendarPlugin.requestPermissions();
+          if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
+            eventOnboarding();
+          } else {
+            simpleDialog(context, "Unable to Retrieve Calendars",
+                "Check your Settings and try again", "", "error");
+          }
         }
+      } catch (e) {
+        //print(e);
+        simpleDialog(context, "Unable to Retrieve Calendars",
+            "Check your Settings and try again", "", "error");
       }
     }
 
@@ -2978,13 +3083,18 @@ class OnboardingPageState extends State<OnboardingPage> {
     }
 
     Future photoOnboarding(BuildContext context) async {
-      final selectedPhotoToData;
-      final XFile? selectedPhoto =
-          await photo.pickImage(source: ImageSource.gallery);
-      if (selectedPhoto != null) {
-        selectedPhotoToData = await selectedPhoto.readAsBytes();
-        VibranceDatabase.instance.updateMemoriesDB(
-            "Photo", "Photo", "System", "", "", selectedPhotoToData, "", "");
+      try {
+        final selectedPhotoToData;
+        final XFile? selectedPhoto =
+            await photo.pickImage(source: ImageSource.gallery);
+        if (selectedPhoto != null) {
+          selectedPhotoToData = await selectedPhoto.readAsBytes();
+          VibranceDatabase.instance.updateMemoriesDB(
+              "Photo", "Photo", "System", "", "", selectedPhotoToData, "", "");
+        }
+      } catch (e) {
+        simpleDialog(context, "Unable to Retrieve Photos",
+            "Check your Settings and try again", "", "error");
       }
     }
 
@@ -3237,9 +3347,10 @@ class JournalPageState extends State<JournalPage> {
         for (int i = 0; i < counterBuffer; i++) {
           currentMood = days[i].daymood;
           date = days[i].daydate;
-
-          journal.add(i - 1);
-          print("Restored Entry: ${i + 1}");
+          if (journalentries == true) {
+            journal.add(i - 1);
+            print("Restored Entry: ${i + 1}");
+          }
         }
         date = currentDate.toString().substring(0, 10);
         currentMood = 1;
@@ -3943,12 +4054,12 @@ class SettingsPageState extends State<SettingsPage> {
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => clearDaysWarning(context),
           ),
-          ListTile(
+/*           ListTile(
             leading: Icon(Icons.texture_sharp),
             title: Text("Add Test Entry",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => testOnboarding(),
-          ),
+          ), */
         ],
       )),
     ]));

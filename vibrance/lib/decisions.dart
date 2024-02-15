@@ -1,10 +1,12 @@
 // ignore_for_file: avoid_print, prefer_typing_uninitialized_variables
 
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:vibrance/main.dart';
 import 'package:vibrance/data_management.dart';
 
-//For making decisions, lets use a quick buffer to store the data, this will be cleared when a decsion has been made
+//For making decisions, lets use a quick buffer to store the data, this will be cleared when a decision has been made
 var buffer = [];
 
 Future makeDecisions(BuildContext context) async {
@@ -45,7 +47,7 @@ Future makeDecisions(BuildContext context) async {
     //We use a new buffer since it's not hooked to anything
 
     buffer.add(MemoriesData(
-        memoriesid: i,
+        memoriesid: i + 1,
         memoriestextone: textone,
         memoriestexttwo: texttwo,
         memoriestype: type,
@@ -114,11 +116,11 @@ Future makeDecisions(BuildContext context) async {
         memories.add(i);
         if (sorting == true) {
           if (buffer[i].memoriesweight > 1.1) {
-            VibranceDatabase.instance
-                .updateWeight(i, buffer[i].memoriesweight - 1);
+            VibranceDatabase.instance.updateWeight(
+                buffer[i].memoriesid, buffer[i].memoriesweight - 1);
           } else {
-            VibranceDatabase.instance
-                .updateWeight(i, buffer[i].memoriesweight + 1);
+            VibranceDatabase.instance.updateWeight(
+                buffer[i].memoriesid, buffer[i].memoriesweight + 1);
           }
         }
         break;
@@ -128,14 +130,16 @@ Future makeDecisions(BuildContext context) async {
   if (buffer.isEmpty) {
     print("We have nothing to work with...");
     results.add(MemoriesData(
-        memoriesid: 1,
-        memoriestextone: "No Memories",
-        memoriestexttwo: "",
-        memoriestype: "Default",
-        memoriessubtype: "Default",
-        memoriesprovider: "System",
-        memoriesargone: "Go to Settings to add Memories.",
-        memoriesargtwo: ""));
+      memoriesid: 1,
+      memoriestextone: "No Memories",
+      memoriestexttwo: "",
+      memoriestype: "Default",
+      memoriessubtype: "Default",
+      memoriesprovider: "System",
+      memoriesargone: "Go to Settings to add Memories.",
+      memoriesargtwo: "",
+      memoriesweight: 3.0,
+    ));
     memories.add(0);
   } else {
     if (buffer.every((element) => element.memoriesweight == 3)) {
@@ -156,10 +160,10 @@ Future makeDecisions(BuildContext context) async {
     } else {
       print("Everything is not weight of 3, moving on...");
       if (sorting == true) {
-        //buffer.shuffle();
-        buffer.sort(((b, a) {
-          return (double.parse(a.memoriesweight.toString()))
-              .compareTo(double.parse(b.memoriesweight.toString()));
+        buffer.shuffle();
+        buffer.sort(((a, b) {
+          return (double.parse(b.memoriesweight.toString()))
+              .compareTo(double.parse(a.memoriesweight.toString()));
         }));
 
         for (int i = 0; i < 6; i++) {
