@@ -173,8 +173,26 @@ const memoriesColors = {
 
 Color darkenColor(Color color) {
   final darkvariant = HSLColor.fromColor(color).withLightness(
-      (HSLColor.fromColor(color).lightness - .3).clamp(0.0, 1.0));
+      (HSLColor.fromColor(color).lightness - .4).clamp(0.0, 1.0));
   return darkvariant.toColor();
+}
+
+Color lightenColor(Color color) {
+  final darkvariant = HSLColor.fromColor(color).withLightness(
+      (HSLColor.fromColor(color).lightness + .2).clamp(0.0, 1.0));
+  return darkvariant.toColor();
+}
+
+Color colorLightnessOnMood(Color color, double mood) {
+//We're going to use this function to alter the colors based on mood...
+//Keeping the other color functions in case we need to revert to those in the future
+  if (mood >= 4) {
+    return lightenColor(color);
+  } else if (mood <= 3) {
+    return darkenColor(color);
+  } else {
+    return color;
+  }
 }
 
 Future redirectURL(String url) async {
@@ -436,8 +454,22 @@ Future probeLatestPodcastRSS(String url, albumart) async {
 
       addMemories();
     }
-  } on SocketException catch (_) {
+  } catch (e) {
     print('Not Connected to $url');
+    if (buffer.length == 1) {
+      results.add(MemoriesData(
+        memoriesid: 1,
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: "",
+        memoriesweight: 3.0,
+      ));
+      memories.add(0);
+    }
   }
 }
 
@@ -487,8 +519,22 @@ Future probeTopTrackSpotify() async {
         addMemories();
       }
     }
-  } on SocketException catch (_) {
+  } catch (e) {
     print('Not Connected to Spotify');
+    if (buffer.length == 1) {
+      results.add(MemoriesData(
+        memoriesid: 1,
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: "",
+        memoriesweight: 3.0,
+      ));
+      memories.add(0);
+    }
   }
 }
 
@@ -496,8 +542,8 @@ Future probeLatestPodcastSpotify(String id, albumart) async {
   try {
     final connection = await InternetAddress.lookup('accounts.spotify.com');
     if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
-      print('Connected to Spotify');
       if (spotifyApp != null) {
+        print('Connected to Spotify');
         //Because Show title isn't coming from the episode we will take it out seperately
         var show = await spotifyApp.shows.get(id);
         var episode = spotifyApp.shows.episodes(id);
@@ -516,10 +562,39 @@ Future probeLatestPodcastSpotify(String id, albumart) async {
           memoriesweight: 0,
         ));
         memories.add(0);
+      } else {
+        if (buffer.length == 1) {
+          results.add(MemoriesData(
+            memoriesid: 1,
+            memoriestextone: "No Memories",
+            memoriestexttwo: "",
+            memoriestype: "Default",
+            memoriessubtype: "Default",
+            memoriesprovider: "System",
+            memoriesargone: "Go to Settings to add Memories.",
+            memoriesargtwo: "",
+            memoriesweight: 3.0,
+          ));
+          memories.add(0);
+        }
       }
     }
-  } on SocketException catch (_) {
+  } catch (e) {
     print('Not Connected to Spotify');
+    if (buffer.length == 1) {
+      results.add(MemoriesData(
+        memoriesid: 1,
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: "",
+        memoriesweight: 3.0,
+      ));
+      memories.add(0);
+    }
   }
 }
 
@@ -531,32 +606,48 @@ Future getAlbumArt(String provider, String id, String type) async {
     case ("Spotify"):
       switch (type) {
         case ("Album"):
-          var album = await spotifyApp.albums.get(id);
-          var albumArt = album.images[0];
-          var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
-          return albumarttoData;
+          try {
+            var album = await spotifyApp.albums.get(id);
+            var albumArt = album.images[0];
+            var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
+            return albumarttoData;
+          } catch (e) {
+            getAlbumArt("", "", "");
+          }
 
         case ("Track"):
-          var track = await spotifyApp.tracks.get(id);
-          var albumArt = track.album.images[0];
-          var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
-          return albumarttoData;
+          try {
+            var track = await spotifyApp.tracks.get(id);
+            var albumArt = track.album.images[0];
+            var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
+            return albumarttoData;
+          } catch (e) {
+            getAlbumArt("", "", "");
+          }
 
         case ("Show"):
-          var show = await spotifyApp.shows.get(id);
-          var albumArt = show.images[0];
-          var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
-          return albumarttoData;
+          try {
+            var show = await spotifyApp.shows.get(id);
+            var albumArt = show.images[0];
+            var albumarttoData = await http.readBytes(Uri.parse(albumArt.url));
+            return albumarttoData;
+          } catch (e) {
+            getAlbumArt("", "", "");
+          }
       }
     case ("RSS"):
-      var rssfeed = await client.get(Uri.parse(id));
-      var content = RssFeed.parse(rssfeed.body);
-      var contenturl = content.image?.url ?? "";
-      var albumarttoData = await http.readBytes(Uri.parse(contenturl));
-      return albumarttoData;
+      try {
+        var rssfeed = await client.get(Uri.parse(id));
+        var content = RssFeed.parse(rssfeed.body);
+        var contenturl = content.image?.url ?? "";
+        var albumarttoData = await http.readBytes(Uri.parse(contenturl));
+        return albumarttoData;
+      } catch (e) {
+        getAlbumArt("", "", "");
+      }
 
     default:
-      break;
+      return Uint8List.fromList(defaultbitmap);
   }
 }
 
@@ -584,8 +675,8 @@ Future probeLatestEvents(String name) async {
           if (eventsBuffer != null) {
             for (int i = 0; i < eventsBuffer.length; i++) {
               //We're only going to poll three events
-              // print(eventsBuffer[i].title);
-              // print(eventsBuffer[i].start);
+              print(eventsBuffer[i].title);
+              print(eventsBuffer[i].start);
 
               results.add(MemoriesData(
                 memoriesid: i,
@@ -605,13 +696,41 @@ Future probeLatestEvents(String name) async {
     } else {
       allCalendars = await deviceCalendarPlugin.requestPermissions();
       if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
-        probeLatestEvents(name);
+        await probeLatestEvents(name);
       } else {
         print("Unable to retrieve event");
+        if (buffer.length == 1) {
+          results.add(MemoriesData(
+            memoriesid: 1,
+            memoriestextone: "No Memories",
+            memoriestexttwo: "",
+            memoriestype: "Default",
+            memoriessubtype: "Default",
+            memoriesprovider: "System",
+            memoriesargone: "Go to Settings to add Memories.",
+            memoriesargtwo: "",
+            memoriesweight: 3.0,
+          ));
+          memories.add(0);
+        }
       }
     }
   } catch (e) {
     print("An Error occurred getting Calendar events.");
+    if (buffer.length == 1) {
+      results.add(MemoriesData(
+        memoriesid: 1,
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: "",
+        memoriesweight: 3.0,
+      ));
+      memories.add(0);
+    }
   }
 }
 
@@ -667,6 +786,7 @@ Widget memoriesEntry(
   switch (type) {
     case "Music":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
+      argtwo ??= Uint8List.fromList(defaultbitmap);
       return InkWell(
           splashColor: typecolor,
           highlightColor: typecolor,
@@ -749,6 +869,7 @@ Widget memoriesEntry(
 
     case "Podcast":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
+      argfour ??= Uint8List.fromList(defaultbitmap);
       return InkWell(
           splashColor: typecolor,
           highlightColor: typecolor,
@@ -890,7 +1011,7 @@ Widget memoriesEntry(
                                                       ? Colors.black
                                                       : Colors.white,
                                               fontSize: 18)),
-                                      Text(argone.toString().substring(0, 16),
+                                      Text(argone.toString(),
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
                                           softWrap: false,
@@ -907,6 +1028,7 @@ Widget memoriesEntry(
 
     case "Photo":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
+      argone ??= Uint8List.fromList(defaultbitmap);
       return InkWell(
           splashColor: typecolor,
           highlightColor: typecolor,
@@ -1256,12 +1378,12 @@ void memoriesDialog(
   if (sorting == true) {
     inspect(results);
     var index = results.indexWhere((item) => (item.memoriesid) == id);
-    print("Index: $index, ID: $id, Weight: " +
+    /*   print("Index: $index, ID: $id, Weight: " +
         results[index].memoriesweight.toString() +
         " Contents: " +
-        results[index].memoriestextone);
+        results[index].memoriestextone); */
 
-    if (results[index].memoriesweight <= 1.0) {
+    if (results[index].memoriesweight <= 2.0) {
       VibranceDatabase.instance
           .updateWeight(id, results[index].memoriesweight + 0.1);
     }
@@ -1433,7 +1555,9 @@ void memoriesDialog(
               content: SingleChildScrollView(
                 child: ListBody(
                   children: <Widget>[
-                    Text("", style: dialogBody),
+                    Text(texttwo.toString(),
+                        style: GoogleFonts.newsCycle(
+                            fontWeight: FontWeight.w600, color: Colors.black)),
                     Text(argone,
                         style: GoogleFonts.newsCycle(
                             fontWeight: FontWeight.w600, color: Colors.black)),
@@ -1627,25 +1751,110 @@ Future manageMemories(BuildContext context) async {
                       child: ListBody(
                           children: List<Widget>.generate(memories.length,
                               (int index) {
-                    return SimpleDialogOption(
-                        onPressed: () {
-                          memoriesDialog(
-                              context,
-                              results[index].memoriesid,
-                              results[index].memoriestype,
-                              results[index].memoriestextone,
-                              results[index].memoriestexttwo,
-                              results[index].memoriessubtype,
-                              results[index].memoriesprovider,
-                              results[index].memoriesargone,
-                              results[index].memoriesargtwo,
-                              results[index].memoriesargthree);
-                        },
-                        child: Text(
-                            (results[index].memoriestype) +
-                                ", Added: " +
-                                results[index].memoriesdate,
-                            style: dialogBody));
+                    return ListTile(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                                title:
+                                    Text('Select Option', style: dialogHeader),
+                                content: SingleChildScrollView(
+                                  child: ListBody(children: [
+                                    SimpleDialogOption(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        memoriesDialog(
+                                            context,
+                                            results[index].memoriesid,
+                                            results[index].memoriestype,
+                                            results[index].memoriestextone,
+                                            results[index].memoriestexttwo,
+                                            results[index].memoriessubtype,
+                                            results[index].memoriesprovider,
+                                            results[index].memoriesargone,
+                                            results[index].memoriesargtwo,
+                                            results[index].memoriesargthree);
+                                      },
+                                      child: Text('Preview Memory',
+                                          style: dialogBody),
+                                    ),
+                                    SimpleDialogOption(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                                backgroundColor:
+                                                    Colors.orange[800],
+                                                title: Text(
+                                                    "Delete this Memory?",
+                                                    style: dialogHeader),
+                                                content: SingleChildScrollView(
+                                                  child: ListBody(
+                                                    children: <Widget>[
+                                                      Text(
+                                                          "Are you sure you want to delete this memory?",
+                                                          style: dialogBody),
+                                                    ],
+                                                  ),
+                                                ),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Cancel',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text('OK',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      results.removeAt(index);
+                                                      VibranceDatabase.instance
+                                                          .initDBfromState(
+                                                              "Memories");
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  )
+                                                ]);
+                                          },
+                                        );
+                                      },
+                                      child: Text('Delete Memory',
+                                          style: dialogBody),
+                                    ),
+                                  ]),
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text('Dismiss', style: dialogBody),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                  )
+                                ]);
+                          },
+                        );
+                      },
+                      title: Text(
+                          (results[index].memoriestype +
+                                  " - " +
+                                  results[index].memoriestextone ??
+                              results[index].memoriestype),
+                          style: dialogBody),
+                      subtitle: Text(
+                          (results[index].memoriesprovider) +
+                              ", Added: " +
+                              results[index].memoriesdate,
+                          style: dialogBody),
+                    );
                   })))
                 ],
               ),
@@ -1691,7 +1900,126 @@ Future manageMemories(BuildContext context) async {
                 },
               ),
               TextButton(
-                child: Text('OK', style: dialogBody),
+                child: Text('Dismiss', style: dialogBody),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  memories.clear();
+                },
+              )
+            ]);
+      },
+    );
+  } else {
+    simpleDialog(context, "No Memories", "There are no Memories to manage.",
+        "Add some Memories to get started.", "info");
+  }
+}
+
+Future manageServices(BuildContext context) async {
+  await VibranceDatabase.instance.provideServiceData();
+  if (services.isNotEmpty) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+            title: Text("Manage Providers", style: dialogHeader),
+            content: SingleChildScrollView(
+              child: ListBody(
+                children: <Widget>[
+                  SingleChildScrollView(
+                      child: ListBody(
+                          children: List<Widget>.generate(services.length,
+                              (int index) {
+                    return ListTile(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                                title:
+                                    Text('Select Option', style: dialogHeader),
+                                content: SingleChildScrollView(
+                                  child: ListBody(children: [
+                                    SimpleDialogOption(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                        showDialog(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                                backgroundColor:
+                                                    Colors.orange[800],
+                                                title: Text(
+                                                    "Remove this Provider?",
+                                                    style: dialogHeader),
+                                                content: SingleChildScrollView(
+                                                  child: ListBody(
+                                                    children: <Widget>[
+                                                      Text(
+                                                          "Are you sure you want to remove this Provider?",
+                                                          style: dialogBody),
+                                                    ],
+                                                  ),
+                                                ),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    child: Text('Cancel',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  ),
+                                                  TextButton(
+                                                    child: Text('OK',
+                                                        style: dialogBody),
+                                                    onPressed: () {
+                                                      services.removeAt(index);
+                                                      VibranceDatabase.instance
+                                                          .removeService(
+                                                              services[index]
+                                                                  .servicename);
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                    },
+                                                  )
+                                                ]);
+                                          },
+                                        );
+                                      },
+                                      child: Text('Remove Provider',
+                                          style: dialogBody),
+                                    ),
+                                  ]),
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text('Dismiss', style: dialogBody),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                  )
+                                ]);
+                          },
+                        );
+                      },
+                      title: Text((services[index].servicename),
+                          style: dialogBody),
+                    );
+                  })))
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                  child: Text('Remove All', style: dialogBody),
+                  onPressed: () {
+                    clearServicesWarning(context);
+                  }),
+              TextButton(
+                child: Text('Dismiss', style: dialogBody),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
@@ -1700,8 +2028,8 @@ Future manageMemories(BuildContext context) async {
       },
     );
   } else {
-    simpleDialog(context, "No Memories", "There are no Memories to manage",
-        "Add some Memories to get started", "info");
+    simpleDialog(context, "No Providers", "There are no Providers to manage.",
+        "Add some Memories to get started.", "info");
   }
 }
 
@@ -1711,13 +2039,13 @@ void clearServicesWarning(BuildContext context) {
     builder: (BuildContext context) {
       return AlertDialog(
           backgroundColor: Colors.orange[800],
-          title: Text("Sign Out?", style: dialogHeader),
+          title: Text("Remove all Providers?", style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Are you sure you want to sign out of all Providers?",
+                Text("Are you sure you want to remove all Providers?",
                     style: dialogBody),
-                Text("(You will need to sign back in later.)",
+                Text("(You will need to add them back in later.)",
                     style: dialogBody),
               ],
             ),
@@ -1948,7 +2276,6 @@ Future invokeSpotify(BuildContext context) async {
   try {
     final connection = await InternetAddress.lookup('accounts.spotify.com');
     if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
-      print('Connected to Spotify');
       //Let's grab the Services data from the DB and put it into our ServiceData object based List
       await VibranceDatabase.instance.provideServiceData();
       //Let's find out which item in the list is the Spotify Cred Data...
@@ -1956,6 +2283,7 @@ Future invokeSpotify(BuildContext context) async {
           services.indexWhere((item) => (item.servicename) == "Spotify");
       //If the result is not empty, which is considered a -1 index result, we can move forward
       if (spotifyindex != -1) {
+        //print('Connected to Spotify');
         spotifyApp = spotify.SpotifyApi(
             spotify.SpotifyApiCredentials(spotifycid, spotifysid,
                 accessToken: services[spotifyindex].dataone,
@@ -1986,24 +2314,22 @@ Future invokeSpotify(BuildContext context) async {
         authenticateSpotify(context);
       }
     }
-  } on SocketException catch (_) {
+  } catch (e) {
     print('Not Connected to Spotify');
-
-    simpleDialog(context, "No Connection", "Unable to Connect to Spotify",
-        "Check your Settings and try again", "error");
   }
 }
 
 Future openResult(BuildContext context) async {
+  memories.clear();
+  results.clear();
   currentDate = DateTime.now();
   dayCounter++;
   //print("Mood: $currentMood");
+  await makeDecisions(context);
   if (journalentries == true) {
     journal.add(dayCounter - 1);
   }
-  memories.clear();
-  results.clear();
-  await makeDecisions(context);
+  await Future.delayed(const Duration(milliseconds: 1000));
   showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2331,6 +2657,7 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
+  bool isLoading = false;
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
@@ -2492,21 +2819,32 @@ class HomePageState extends State<HomePage> {
                     ),
                     SizedBox(height: 20),
                     TextButton(
-                      style: ButtonStyle(
-                          minimumSize:
-                              MaterialStatePropertyAll<Size>(Size(250, 50)),
-                          backgroundColor:
-                              MaterialStatePropertyAll<Color>(buttoncolor),
-                          enableFeedback: true),
-                      onPressed: () {
-                        openResult(context);
-                      },
-                      child: Icon(
-                        Icons.check,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 30,
-                      ),
-                    ),
+                        style: ButtonStyle(
+                            minimumSize:
+                                MaterialStatePropertyAll<Size>(Size(250, 50)),
+                            backgroundColor: MaterialStatePropertyAll<Color>(
+                                isLoading ? Colors.transparent : buttoncolor),
+                            enableFeedback: true),
+                        onPressed: () {
+                          openResult(context);
+                          setState(() {
+                            isLoading = true;
+                          });
+                          Future.delayed(const Duration(seconds: 3), () {
+                            setState(() {
+                              isLoading = false;
+                            });
+                          });
+                        },
+                        child: isLoading
+                            ? CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : Icon(
+                                Icons.check,
+                                color: Colors.white.withOpacity(0.8),
+                                size: 35,
+                              ))
                   ])
             ]));
   }
@@ -2645,27 +2983,33 @@ class OnboardingPageState extends State<OnboardingPage> {
 
           List<Widget> spotifyItemList(BuildContext context) {
             return List<Widget>.generate(result.items.length, (int index) {
-              return SimpleDialogOption(
-                  onPressed: () async {
-                    VibranceDatabase.instance.updateMemoriesDB(
-                        searchResults[index].memoriestype,
-                        searchResults[index].memoriessubtype,
-                        "Spotify",
-                        searchResults[index].memoriestextone,
-                        searchResults[index].memoriestexttwo,
-                        searchResults[index].memoriesid,
-                        await getAlbumArt(
-                            "Spotify",
-                            searchResults[index].memoriesid,
-                            searchResults[index].memoriessubtype),
-                        "");
-                    Navigator.pop(context);
-                  },
-                  child: Text(searchResults[index].memoriestextone,
-                      style: GoogleFonts.newsCycle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      )));
+              return ListTile(
+                onTap: () async {
+                  VibranceDatabase.instance.updateMemoriesDB(
+                      searchResults[index].memoriestype,
+                      searchResults[index].memoriessubtype,
+                      "Spotify",
+                      searchResults[index].memoriestextone,
+                      searchResults[index].memoriestexttwo,
+                      searchResults[index].memoriesid,
+                      await getAlbumArt(
+                          "Spotify",
+                          searchResults[index].memoriesid,
+                          searchResults[index].memoriessubtype),
+                      "");
+                  Navigator.pop(context);
+                },
+                title: Text(searchResults[index].memoriestextone,
+                    style: GoogleFonts.newsCycle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    )),
+                subtitle: Text(searchResults[index].memoriestexttwo,
+                    style: GoogleFonts.newsCycle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    )),
+              );
             });
           }
 
@@ -2773,8 +3117,23 @@ class OnboardingPageState extends State<OnboardingPage> {
                 SimpleDialogOption(
                   onPressed: () async {
                     Navigator.of(context).pop();
-                    await invokeSpotify(context);
-                    spotifyData("Podcasts");
+                    try {
+                      final connection =
+                          await InternetAddress.lookup('accounts.spotify.com');
+                      if (connection.isNotEmpty &&
+                          connection[0].rawAddress.isNotEmpty) {
+                        if (!context.mounted) return;
+                        await invokeSpotify(context);
+                        spotifyData("Podcasts");
+                      }
+                    } catch (e) {
+                      simpleDialog(
+                          context,
+                          "No Connection",
+                          "Unable to Connect to Spotify",
+                          "Check your Settings and try again",
+                          "error");
+                    }
                   },
                   child: Text('Spotify', style: dialogBody),
                 ),
@@ -3089,8 +3448,8 @@ class OnboardingPageState extends State<OnboardingPage> {
             await photo.pickImage(source: ImageSource.gallery);
         if (selectedPhoto != null) {
           selectedPhotoToData = await selectedPhoto.readAsBytes();
-          VibranceDatabase.instance.updateMemoriesDB(
-              "Photo", "Photo", "System", "", "", selectedPhotoToData, "", "");
+          VibranceDatabase.instance.updateMemoriesDB("Photo", "Photo", "System",
+              "Photo", "", selectedPhotoToData, "", "");
         }
       } catch (e) {
         simpleDialog(context, "Unable to Retrieve Photos",
@@ -3144,8 +3503,26 @@ class OnboardingPageState extends State<OnboardingPage> {
                                   SimpleDialogOption(
                                     onPressed: () async {
                                       Navigator.of(context).pop();
-                                      await invokeSpotify(context);
-                                      spotifyData("Music");
+                                      try {
+                                        final connection =
+                                            await InternetAddress.lookup(
+                                                'accounts.spotify.com');
+                                        if (connection.isNotEmpty &&
+                                            connection[0]
+                                                .rawAddress
+                                                .isNotEmpty) {
+                                          if (!context.mounted) return;
+                                          await invokeSpotify(context);
+                                          spotifyData("Music");
+                                        }
+                                      } catch (e) {
+                                        simpleDialog(
+                                            context,
+                                            "No Connection",
+                                            "Unable to Connect to Spotify",
+                                            "Check your Settings and try again",
+                                            "error");
+                                      }
                                     },
                                     child: Text('Spotify', style: dialogBody),
                                   ),
@@ -3273,8 +3650,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                     ListTile(
                       leading: Icon(Icons.lightbulb),
                       onTap: () {
-                        VibranceDatabase.instance.updateMemoriesDB(
-                            "Tips", "Wellness", "System", "", "", "", "", "");
+                        VibranceDatabase.instance.updateMemoriesDB("Tips",
+                            "Wellness", "System", "Tips", "", "", "", "");
                         showDialog(
                           context: context,
                           builder: (BuildContext context) {
@@ -3376,8 +3753,7 @@ class JournalPageState extends State<JournalPage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-              title: Text("Mood: $mood/6",
-                  style: GoogleFonts.newsCycle(color: Colors.white)),
+              title: Text("Mood: $mood/6", style: dialogHeader),
               content: SingleChildScrollView(
                 child: ListBody(
                   children: <Widget>[
@@ -3401,9 +3777,7 @@ class JournalPageState extends State<JournalPage> {
                       context: context,
                       builder: (BuildContext context) {
                         return AlertDialog(
-                            title: Text("Options",
-                                style:
-                                    GoogleFonts.newsCycle(color: Colors.white)),
+                            title: Text("Options", style: dialogHeader),
                             content: SingleChildScrollView(
                               child: ListBody(
                                 children: <Widget>[
@@ -3557,7 +3931,8 @@ class JournalPageState extends State<JournalPage> {
                                                           .pop();
                                                       days.removeAt(id - 1);
                                                       VibranceDatabase.instance
-                                                          .initDBfromState();
+                                                          .initDBfromState(
+                                                              "Days");
                                                       reenumerateState();
                                                       Navigator.of(context)
                                                           .pop();
@@ -3622,31 +3997,32 @@ class JournalPageState extends State<JournalPage> {
                       begin: Alignment.topLeft,
                       end: Alignment(0.5, 1),
                       colors: [
-                        darkenColor(colorone),
-                        darkenColor(colortwo),
-                        darkenColor(colorthree),
-                        darkenColor(colorfour),
-                        darkenColor(colorfive),
-                        darkenColor(colorsix)
+                        colorLightnessOnMood(colorone, mood),
+                        colorLightnessOnMood(colortwo, mood),
+                        colorLightnessOnMood(colorthree, mood),
+                        colorLightnessOnMood(colorfour, mood),
+                        colorLightnessOnMood(colorfive, mood),
+                        colorLightnessOnMood(colorsix, mood)
                       ])),
               child: ListTile(
                 leading: Icon(
                   icon,
-                  color: Colors.white,
+                  color: mood >= 4 ? Colors.black : Colors.white,
                 ),
                 title: Text("Mood: ${mood.toInt()}/6",
                     overflow: TextOverflow.fade,
                     softWrap: false,
                     maxLines: 1,
                     style: GoogleFonts.newsCycle(
-                        color: Colors.white, fontSize: 16)),
+                        color: mood >= 4 ? Colors.black : Colors.white,
+                        fontSize: 16)),
                 subtitle: Text(date,
                     overflow: TextOverflow.fade,
                     softWrap: false,
                     maxLines: 1,
                     style: GoogleFonts.newsCycle(
                         fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                        color: mood >= 4 ? Colors.black : Colors.white,
                         fontSize: 14)),
                 onTap: () {
                   journalDialog(
@@ -4031,10 +4407,10 @@ class SettingsPageState extends State<SettingsPage> {
               onTap: () => manageMemories(context),
             ),
             ListTile(
-              leading: Icon(Icons.logout),
-              title: Text("Sign Out of Providers",
-                  style: GoogleFonts.newsCycle(color: Colors.red)),
-              onTap: () => clearServicesWarning(context),
+              leading: Icon(Icons.apps),
+              title: Text("Manage Providers",
+                  style: GoogleFonts.newsCycle(color: Colors.black)),
+              onTap: () => manageServices(context),
             ),
             ListTile(
               leading: Icon(Icons.line_weight),

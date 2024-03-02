@@ -10,6 +10,7 @@ import 'package:vibrance/data_management.dart';
 var buffer = [];
 
 Future makeDecisions(BuildContext context) async {
+  buffer.clear();
   final db = await VibranceDatabase.instance.database;
 
   var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
@@ -58,7 +59,9 @@ Future makeDecisions(BuildContext context) async {
         memoriesargthree: argthree,
         memoriesweight: weight));
   }
-  void pushContentFromBuffer(i) async {
+
+  Future pushContentFromBuffer(i) async {
+    inspect(buffer[i]);
     switch (buffer[i].memoriestype) {
       case "Podcast":
         if (buffer[i].memoriesprovider == "RSS") {
@@ -70,10 +73,10 @@ Future makeDecisions(BuildContext context) async {
           await probeLatestPodcastSpotify(
               buffer[i].memoriesargone, buffer[i].memoriesargtwo);
         }
-
         break;
 
       case "Event":
+        if (!context.mounted) return;
         await probeLatestEvents(buffer[i].memoriestextone);
         break;
 
@@ -98,6 +101,15 @@ Future makeDecisions(BuildContext context) async {
               memoriesargtwo: buffer[i].memoriesargtwo,
               memoriesargthree: buffer[i].memoriesargthree));
           memories.add(i);
+          if (sorting == true) {
+            if (buffer[i].memoriesweight > 1.1) {
+              VibranceDatabase.instance.updateWeight(
+                  buffer[i].memoriesid, buffer[i].memoriesweight - 1);
+            } else {
+              VibranceDatabase.instance.updateWeight(
+                  buffer[i].memoriesid, buffer[i].memoriesweight + 1);
+            }
+          }
         }
         break;
 
@@ -153,8 +165,26 @@ Future makeDecisions(BuildContext context) async {
         }
       } else {
         print("We have plenty of data to work with... populating 6 entries");
-        for (int i = 0; i < 6; i++) {
-          pushContentFromBuffer(i);
+        //Certain memory types must remain a priority on the stack, if they aren't let's move them to the top
+        for (int i = 0; i < buffer.length; i++) {
+          switch (buffer[i].memoriestype) {
+            case "Podcast":
+            case "Event":
+              buffer.insert(0, buffer[i]);
+              buffer.removeAt(i + 1);
+            case "Music":
+              if (buffer[i].memoriessubtype == "Top Track") {
+                buffer.insert(0, buffer[i]);
+                buffer.removeAt(i + 1);
+              } else {}
+              break;
+
+            default:
+              break;
+          }
+        }
+        for (int i = 0; i < buffer.length; i++) {
+          await pushContentFromBuffer(i);
         }
       }
     } else {
@@ -166,17 +196,49 @@ Future makeDecisions(BuildContext context) async {
               .compareTo(double.parse(a.memoriesweight.toString()));
         }));
 
-        for (int i = 0; i < 6; i++) {
-          pushContentFromBuffer(i);
+        //Certain memory types must remain a priority on the stack, if they aren't let's move them to the top
+        for (int i = 0; i < buffer.length; i++) {
+          switch (buffer[i].memoriestype) {
+            case "Podcast":
+            case "Event":
+              buffer.insert(0, buffer[i]);
+              buffer.removeAt(i + 1);
+            case "Music":
+              if (buffer[i].memoriessubtype == "Top Track") {
+                buffer.insert(0, buffer[i]);
+                buffer.removeAt(i + 1);
+              } else {}
+              break;
+
+            default:
+              break;
+          }
+        }
+
+        if (buffer.length < 6) {
+          //We want to make sure that we only use 6 memories max any less is fine...
+          for (int i = 0; i < buffer.length; i++) {
+            await pushContentFromBuffer(i);
+          }
+        } else {
+          for (int i = 0; i < 7; i++) {
+            await pushContentFromBuffer(i);
+          }
         }
       } else {
-        for (int i = 0; i < 6; i++) {
-          pushContentFromBuffer(i);
+        if (buffer.length < 6) {
+          for (int i = 0; i < buffer.length; i++) {
+            await pushContentFromBuffer(i);
+          }
+        } else {
+          for (int i = 0; i < 7; i++) {
+            await pushContentFromBuffer(i);
+          }
         }
       }
     }
-    buffer.clear();
   }
+  //buffer.clear();
 }
 
 Future pullAllMemoriesData() async {

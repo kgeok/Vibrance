@@ -175,21 +175,40 @@ class VibranceDatabase {
     }
   }
 
-  Future initDBfromState() async {
-    clearDaysDB(); //We need to clean out the existing DB and reappend it
-    for (var i = 0; i < days.length; i++) {
-      addDayDB(
-        i + 1,
-        days[i].daydate,
-        days[i].daymood,
-        days[i].daycolorone,
-        days[i].daycolortwo,
-        days[i].daycolorthree,
-        days[i].daycolorfour,
-        days[i].daycolorfive,
-        days[i].daycolorsix,
-        days[i].daynote,
-      );
+  Future initDBfromState(type) async {
+    switch (type) {
+      case "Days":
+        clearDaysDB(); //We need to clean out the existing DB and reappend it
+        for (var i = 0; i < days.length; i++) {
+          addDayDB(
+            i + 1,
+            days[i].daydate,
+            days[i].daymood,
+            days[i].daycolorone,
+            days[i].daycolortwo,
+            days[i].daycolorthree,
+            days[i].daycolorfour,
+            days[i].daycolorfive,
+            days[i].daycolorsix,
+            days[i].daynote,
+          );
+        }
+        break;
+      case "Memories":
+        clearMemoriesDB(); //We need to clean out the existing DB and reappend it
+        for (var i = 0; i < results.length; i++) {
+          await updateMemoriesDB(
+            results[i].memoriestype,
+            results[i].memoriessubtype,
+            results[i].memoriesprovider,
+            results[i].memoriestextone,
+            results[i].memoriestexttwo,
+            results[i].memoriesargone,
+            results[i].memoriesargtwo,
+            results[i].memoriesargthree,
+          );
+        }
+        break;
     }
   }
 
@@ -202,7 +221,7 @@ class VibranceDatabase {
     counter ??= 0;
     counter = counter + 1;
     const weight = 3;
-
+    print(counter);
     db.rawInsert(
         'INSERT INTO Memories (id, type, subtype, provider, date, textone, texttwo, textthree, textfour, rawone, rawtwo, rawthree, rawfour, weight) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
@@ -290,6 +309,12 @@ class VibranceDatabase {
           '$datafour',
           '$datafive'
         ]);
+  }
+
+  Future deleteMemoriesDB(id) async {
+    final db = await instance.database;
+    db.query("Memories");
+    db.execute("DELETE FROM Memories WHERE id = $id");
   }
 
   Future removeService(String service) async {
