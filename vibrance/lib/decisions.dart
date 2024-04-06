@@ -1,7 +1,4 @@
 // ignore_for_file: avoid_print, prefer_typing_uninitialized_variables
-
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:vibrance/main.dart';
 import 'package:vibrance/data_management.dart';
@@ -9,10 +6,8 @@ import 'package:vibrance/data_management.dart';
 //For making decisions, lets use a quick buffer to store the data, this will be cleared when a decision has been made
 var buffer = [];
 
-Future makeDecisions(BuildContext context) async {
-  buffer.clear();
+Future populateBuffer() async {
   final db = await VibranceDatabase.instance.database;
-
   var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
   var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
   counter ??= 0;
@@ -59,9 +54,21 @@ Future makeDecisions(BuildContext context) async {
         memoriesargthree: argthree,
         memoriesweight: weight));
   }
+}
+
+Future makeDecisions(BuildContext context) async {
+  //Let's not overfill the screen...
+  int entriesAmount = 6;
+  if (MediaQuery.of(context).size.height < 1000) {
+    entriesAmount = (MediaQuery.of(context).devicePixelRatio * 2).toInt();
+  } else {
+    entriesAmount = (MediaQuery.of(context).devicePixelRatio * 3).toInt();
+  }
+
+  buffer.clear();
+  await populateBuffer();
 
   Future pushContentFromBuffer(i) async {
-    inspect(buffer[i]);
     switch (buffer[i].memoriestype) {
       case "Podcast":
         if (buffer[i].memoriesprovider == "RSS") {
@@ -85,9 +92,11 @@ Future makeDecisions(BuildContext context) async {
         break;
       case "Music":
         if (buffer[i].memoriessubtype == "Top Track") {
-          if (!context.mounted) return;
-          await invokeSpotify(context);
-          await probeTopTrackSpotify();
+          if (buffer[i].memoriesprovider == "Spotify") {
+            if (!context.mounted) return;
+            await invokeSpotify(context);
+            await probeTopTrackSpotify();
+          }
         } else {
           results.add(MemoriesData(
               memoriesid: buffer[i].memoriesid,
@@ -157,14 +166,15 @@ Future makeDecisions(BuildContext context) async {
     if (buffer.every((element) => element.memoriesweight == 3)) {
       print("Everything is weight of 3, using first couple of elements...");
 
-      if (buffer.length < 6) {
+      if (buffer.length < entriesAmount) {
         print(
             "We don't have enough Memories to populate a full list...using whatever we have...");
         for (int i = 0; i <= buffer.length - 1; i++) {
           pushContentFromBuffer(i);
         }
       } else {
-        print("We have plenty of data to work with... populating 6 entries");
+        print(
+            "We have plenty of data to work with... populating $entriesAmount entries");
         //Certain memory types must remain a priority on the stack, if they aren't let's move them to the top
         for (int i = 0; i < buffer.length; i++) {
           switch (buffer[i].memoriestype) {
@@ -182,6 +192,10 @@ Future makeDecisions(BuildContext context) async {
             default:
               break;
           }
+        }
+        if (buffer.length > entriesAmount) {
+          //We only want to keep the first 6 elements
+          buffer.removeRange(entriesAmount, buffer.length);
         }
         for (int i = 0; i < buffer.length; i++) {
           await pushContentFromBuffer(i);
@@ -215,25 +229,22 @@ Future makeDecisions(BuildContext context) async {
           }
         }
 
-        if (buffer.length < 6) {
-          //We want to make sure that we only use 6 memories max any less is fine...
-          for (int i = 0; i < buffer.length; i++) {
-            await pushContentFromBuffer(i);
-          }
-        } else {
-          for (int i = 0; i < 7; i++) {
-            await pushContentFromBuffer(i);
-          }
+        if (buffer.length > entriesAmount) {
+          //We only want to keep the first 6 elements
+          buffer.removeRange(entriesAmount, buffer.length);
+        }
+        print(buffer.length);
+        for (int i = 0; i < buffer.length; i++) {
+          await pushContentFromBuffer(i);
         }
       } else {
-        if (buffer.length < 6) {
-          for (int i = 0; i < buffer.length; i++) {
-            await pushContentFromBuffer(i);
-          }
-        } else {
-          for (int i = 0; i < 7; i++) {
-            await pushContentFromBuffer(i);
-          }
+        if (buffer.length > entriesAmount) {
+          //We only want to keep the first 6 elements
+          buffer.removeRange(entriesAmount, buffer.length);
+        }
+
+        for (int i = 0; i < buffer.length; i++) {
+          await pushContentFromBuffer(i);
         }
       }
     }
@@ -242,10 +253,15 @@ Future makeDecisions(BuildContext context) async {
 }
 
 Future pullAllMemoriesData() async {
+  //Clear the arrays in case, as to not load in stale data...
+  //For whatever reason, even though the length of the arrays could be 0, it's not "considered" empty
   if (results.isNotEmpty) {
     results.clear();
+  }
+  if (memories.isNotEmpty) {
     memories.clear();
   }
+
   final db = await VibranceDatabase.instance.database;
 
   var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
@@ -298,6 +314,26 @@ Future pullAllMemoriesData() async {
     memories.add(i);
 /*     print(
         "${results.elementAt(i).memoriesid}, ${results.elementAt(i).memoriestype}"); */
+  }
+}
+
+Future contingencyDecision(index) async {
+//Using this in case we need to replace a memory with something safer
+  if (buffer.isNotEmpty) {
+    for (int i = 0; i < buffer.length; i++) {
+      switch (buffer[i].memorytype) {
+        case "Music":
+          break;
+        case "Photo":
+          break;
+        case "Voice":
+          break;
+        case "Text":
+          break;
+        case "Tips":
+          break;
+      }
+    }
   }
 }
 

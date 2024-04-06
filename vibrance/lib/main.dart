@@ -27,7 +27,11 @@ import 'dart:developer';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MaterialApp(home: MainPage()));
+  runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: CustomTheme.lightTheme,
+      darkTheme: CustomTheme.darkTheme,
+      home: MainPage()));
   VibranceDatabase.instance.initStatefromDB();
   populateFromState();
 }
@@ -68,8 +72,8 @@ String date = currentDate.toString().substring(0, 10);
 int dayCounter = 0;
 var pageIndex = 0;
 var note = "";
-var noteBuffer;
-var textBuffer;
+String noteBuffer = "";
+String textBuffer = "";
 var text;
 Color defaultcolor = Color(0xFF752983);
 var backgroundcolor;
@@ -77,8 +81,9 @@ var buttoncolor = Color(0xFF65496A);
 
 //For testing only
 bool journalentries = true;
+String filter = "";
 bool sorting = true; //Using this switch in case we need to disable for debug
-bool enableCalendars2023OS = true;
+bool enableCalendars2023OS = true; //Remove before Prod
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
@@ -86,7 +91,7 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
 class DayData {
   int dayid = 0;
   late var daydate;
-  late var daymood;
+  late double daymood = 0;
   late String daynote = "";
   late String daytextone = "";
   late Color daycolorone = Color(0xFF000000);
@@ -187,7 +192,12 @@ Color colorLightnessOnMood(Color color, double mood) {
 //We're going to use this function to alter the colors based on mood...
 //Keeping the other color functions in case we need to revert to those in the future
   if (mood >= 4) {
-    return lightenColor(color);
+    if (color == Color(0xFF000000)) {
+      //Correction for if color is black, when lightenColor is used on black it becomes red...
+      return Color(0xFF878787);
+    } else {
+      return lightenColor(color);
+    }
   } else if (mood <= 3) {
     return darkenColor(color);
   } else {
@@ -245,10 +255,10 @@ Future stopRecording() async {
     //Disposing for when we are done to clear device space
     File fileBuffer = File(path);
     selectedAudiotoData = await selectedAudio.readAsBytes();
-    if (noteBuffer == "") {
+    if (noteBuffer.isEmpty) {
       noteBuffer = DateTime.now().toString().substring(0, 10) + " Recording";
     }
-    noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
+    //noteBuffer ??= DateTime.now().toString().substring(0, 10) + " Recording";
     VibranceDatabase.instance.updateMemoriesDB("Voice", "Audio", "System",
         noteBuffer, "", selectedAudiotoData, "", "");
     fileBuffer.delete();
@@ -360,7 +370,9 @@ Future authenticateSpotify(BuildContext context) async {
         },
       ),
     )
-    ..loadRequest(Uri.parse(authUri.toString()));
+    ..loadRequest(Uri.parse(authUri.toString())).timeout(
+      const Duration(seconds: 5),
+    );
 
   showDialog(
       context: context,
@@ -425,12 +437,16 @@ Future probeLatestPodcastRSS(String url, albumart) async {
   try {
     //We need to clean up the url for the check to work properly
     String cleanurl = (url.replaceAll(RegExp("http://|https://|rss://"), ""));
-    final connection = await InternetAddress.lookup(
-        cleanurl.substring(0, cleanurl.indexOf('/')));
-    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+    if (await checkConnection(cleanurl.substring(0, cleanurl.indexOf('/')))) {
       // print('Connected to $url');
 
-      var rssfeed = await client.get(Uri.parse(url));
+      var rssfeed = await client.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print("A Timeout Error Occured.");
+          return http.Response('Error', 408);
+        },
+      );
       var content = RssFeed.parse(rssfeed.body);
       // print(content.title);
       RssItem latestitem = content.items!.first;
@@ -495,8 +511,7 @@ Future probeLatestTip() async {
 
 Future probeTopTrackSpotify() async {
   try {
-    final connection = await InternetAddress.lookup('accounts.spotify.com');
-    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+    if (await checkConnection('accounts.spotify.com')) {
       print('Connected to Spotify');
       if (spotifyApp != null) {
         var result;
@@ -540,8 +555,7 @@ Future probeTopTrackSpotify() async {
 
 Future probeLatestPodcastSpotify(String id, albumart) async {
   try {
-    final connection = await InternetAddress.lookup('accounts.spotify.com');
-    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+    if (await checkConnection('accounts.spotify.com')) {
       if (spotifyApp != null) {
         print('Connected to Spotify');
         //Because Show title isn't coming from the episode we will take it out seperately
@@ -637,7 +651,13 @@ Future getAlbumArt(String provider, String id, String type) async {
       }
     case ("RSS"):
       try {
-        var rssfeed = await client.get(Uri.parse(id));
+        var rssfeed = await client.get(Uri.parse(id)).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            print("A Timeout Error Occured.");
+            return http.Response('Error', 408);
+          },
+        );
         var content = RssFeed.parse(rssfeed.body);
         var contenturl = content.image?.url ?? "";
         var albumarttoData = await http.readBytes(Uri.parse(contenturl));
@@ -663,8 +683,25 @@ Future probeLatestEvents(String name) async {
       var eventparams =
           RetrieveEventsParams(startDate: startDate, endDate: endDate);
       allCalendars = await deviceCalendarPlugin.retrieveCalendars();
-      allCalendarsBuffer = allCalendars?.data;
-
+      if (allCalendars.isEmpty) {
+        print("No Calendar Data Returned.");
+        if (buffer.length == 1) {
+          results.add(MemoriesData(
+            memoriesid: 1,
+            memoriestextone: "No Memories",
+            memoriestexttwo: "",
+            memoriestype: "Default",
+            memoriessubtype: "Default",
+            memoriesprovider: "System",
+            memoriesargone: "Go to Settings to add Memories.",
+            memoriesargtwo: "",
+            memoriesweight: 3.0,
+          ));
+          memories.add(0);
+        }
+      } else {
+        allCalendarsBuffer = allCalendars?.data;
+      }
       //Since it's not so easy to just pull the Memories using IndexOf or something else, we have to just traverse the array and match it to the given calendar
       for (int i = 0; i < (allCalendarsBuffer.length); i++) {
         if (allCalendarsBuffer[i].name == name) {
@@ -673,23 +710,25 @@ Future probeLatestEvents(String name) async {
           var eventsBuffer = events.data;
 
           if (eventsBuffer != null) {
-            for (int i = 0; i < eventsBuffer.length; i++) {
+            //We only want to use one event so lets randomize which one we use in the case theres multiple events
+            Random random = Random();
+            int randomBuffer = random.nextInt(eventsBuffer.length);
+/*             for (int i = 0; i < eventsBuffer.length; i++) {
               //We're only going to poll three events
               print(eventsBuffer[i].title);
-              print(eventsBuffer[i].start);
+              print(eventsBuffer[i].start); */
 
-              results.add(MemoriesData(
-                memoriesid: i,
-                memoriestype: "Event",
-                memoriessubtype: "Event",
-                memoriesprovider: "System",
-                memoriestextone: (eventsBuffer[i].title).toString(),
-                memoriestexttwo: (eventsBuffer[i].start).toString(),
-                memoriesargone: name,
-                memoriesweight: 3.0,
-              ));
-              memories.add(i);
-            }
+            results.add(MemoriesData(
+              memoriesid: i,
+              memoriestype: "Event",
+              memoriessubtype: "Event",
+              memoriesprovider: "System",
+              memoriestextone: (eventsBuffer[randomBuffer].title).toString(),
+              memoriestexttwo: (eventsBuffer[randomBuffer].start).toString(),
+              memoriesargone: name,
+              memoriesweight: 3.0,
+            ));
+            memories.add(i);
           }
         }
       }
@@ -1349,7 +1388,7 @@ Widget memoriesEntry(
                                 color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 18)),
+                                fontSize: 20)),
                         Text("Go to Settings to add Memories.",
                             overflow: TextOverflow.fade,
                             softWrap: false,
@@ -1359,7 +1398,7 @@ Widget memoriesEntry(
                                 color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 16))
+                                fontSize: 18))
                       ])))));
   }
 }
@@ -1737,181 +1776,200 @@ void clearDaysWarning(BuildContext context) {
 }
 
 Future manageMemories(BuildContext context) async {
-  await pullAllMemoriesData();
-  if (memories.isNotEmpty) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-            title: Text("Manage Memories", style: dialogHeader),
-            content: SingleChildScrollView(
-              child: ListBody(
-                children: <Widget>[
-                  SingleChildScrollView(
-                      child: ListBody(
-                          children: List<Widget>.generate(memories.length,
-                              (int index) {
-                    return ListTile(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                                title:
-                                    Text('Select Option', style: dialogHeader),
-                                content: SingleChildScrollView(
-                                  child: ListBody(children: [
-                                    SimpleDialogOption(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        memoriesDialog(
-                                            context,
-                                            results[index].memoriesid,
-                                            results[index].memoriestype,
-                                            results[index].memoriestextone,
-                                            results[index].memoriestexttwo,
-                                            results[index].memoriessubtype,
-                                            results[index].memoriesprovider,
-                                            results[index].memoriesargone,
-                                            results[index].memoriesargtwo,
-                                            results[index].memoriesargthree);
-                                      },
-                                      child: Text('Preview Memory',
-                                          style: dialogBody),
-                                    ),
-                                    SimpleDialogOption(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return AlertDialog(
-                                                backgroundColor:
-                                                    Colors.orange[800],
-                                                title: Text(
-                                                    "Delete this Memory?",
-                                                    style: dialogHeader),
-                                                content: SingleChildScrollView(
-                                                  child: ListBody(
-                                                    children: <Widget>[
-                                                      Text(
-                                                          "Are you sure you want to delete this memory?",
+  try {
+    await pullAllMemoriesData();
+    if (memories.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              title: Text("Manage Memories", style: dialogHeader),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    SingleChildScrollView(
+                        child: ListBody(
+                            children: List<Widget>.generate(memories.length,
+                                (int index) {
+                      return ListTile(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                  title: Text('Select Option',
+                                      style: dialogHeader),
+                                  content: SingleChildScrollView(
+                                    child: ListBody(children: [
+                                      SimpleDialogOption(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          memoriesDialog(
+                                              context,
+                                              results[index].memoriesid,
+                                              results[index].memoriestype,
+                                              results[index].memoriestextone,
+                                              results[index].memoriestexttwo,
+                                              results[index].memoriessubtype,
+                                              results[index].memoriesprovider,
+                                              results[index].memoriesargone,
+                                              results[index].memoriesargtwo,
+                                              results[index].memoriesargthree);
+                                        },
+                                        child: Text('Preview Memory',
+                                            style: dialogBody),
+                                      ),
+                                      SimpleDialogOption(
+                                        onPressed: () {
+                                          VibranceDatabase.instance
+                                              .updateWeight(index + 1, 3);
+                                        },
+                                        child: Text('Prioritize Memory',
+                                            style: dialogBody),
+                                      ),
+                                      SimpleDialogOption(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          showDialog(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                  backgroundColor:
+                                                      Colors.orange[800],
+                                                  title: Text(
+                                                      "Delete this Memory?",
+                                                      style: dialogHeader),
+                                                  content:
+                                                      SingleChildScrollView(
+                                                    child: ListBody(
+                                                      children: <Widget>[
+                                                        Text(
+                                                            "Are you sure you want to delete this memory?",
+                                                            style: dialogBody),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  actions: <Widget>[
+                                                    TextButton(
+                                                      child: Text('Cancel',
                                                           style: dialogBody),
-                                                    ],
-                                                  ),
-                                                ),
-                                                actions: <Widget>[
-                                                  TextButton(
-                                                    child: Text('Cancel',
-                                                        style: dialogBody),
-                                                    onPressed: () {
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                    },
-                                                  ),
-                                                  TextButton(
-                                                    child: Text('OK',
-                                                        style: dialogBody),
-                                                    onPressed: () {
-                                                      results.removeAt(index);
-                                                      VibranceDatabase.instance
-                                                          .initDBfromState(
-                                                              "Memories");
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                    },
-                                                  )
-                                                ]);
-                                          },
-                                        );
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                    ),
+                                                    TextButton(
+                                                      child: Text('OK',
+                                                          style: dialogBody),
+                                                      onPressed: () {
+                                                        results.removeAt(index);
+                                                        VibranceDatabase
+                                                            .instance
+                                                            .initDBfromState(
+                                                                "Memories");
+                                                        VibranceDatabase
+                                                            .instance
+                                                            .resetWeight();
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                    )
+                                                  ]);
+                                            },
+                                          );
+                                        },
+                                        child: Text('Delete Memory',
+                                            style: dialogBody),
+                                      ),
+                                    ]),
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: Text('Dismiss', style: dialogBody),
+                                      onPressed: () {
+                                        Navigator.pop(context);
                                       },
-                                      child: Text('Delete Memory',
-                                          style: dialogBody),
-                                    ),
-                                  ]),
-                                ),
-                                actions: <Widget>[
-                                  TextButton(
-                                    child: Text('Dismiss', style: dialogBody),
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                    },
-                                  )
-                                ]);
-                          },
-                        );
+                                    )
+                                  ]);
+                            },
+                          );
+                        },
+                        title: Text(
+                            (results[index].memoriestype +
+                                    " - " +
+                                    results[index].memoriestextone ??
+                                results[index].memoriestype),
+                            style: dialogBody),
+                        subtitle: Text(
+                            (results[index].memoriesprovider) +
+                                ", Added: " +
+                                results[index].memoriesdate,
+                            style: dialogBody),
+                      );
+                    })))
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('Delete All', style: dialogBody),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                            backgroundColor: Colors.orange[800],
+                            title: Text("Clear Memories?", style: dialogHeader),
+                            content: SingleChildScrollView(
+                              child: ListBody(
+                                children: <Widget>[
+                                  Text(
+                                      "Are you sure you want to clear Memories?",
+                                      style: dialogBody),
+                                  Text("(This action cannot be reversed)",
+                                      style: dialogBody),
+                                ],
+                              ),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text('Cancel', style: dialogBody),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                              TextButton(
+                                child: Text('OK', style: dialogBody),
+                                onPressed: () {
+                                  VibranceDatabase.instance.clearMemoriesDB();
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).pop();
+                                },
+                              )
+                            ]);
                       },
-                      title: Text(
-                          (results[index].memoriestype +
-                                  " - " +
-                                  results[index].memoriestextone ??
-                              results[index].memoriestype),
-                          style: dialogBody),
-                      subtitle: Text(
-                          (results[index].memoriesprovider) +
-                              ", Added: " +
-                              results[index].memoriesdate,
-                          style: dialogBody),
                     );
-                  })))
-                ],
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: Text('Delete All', style: dialogBody),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                          backgroundColor: Colors.orange[800],
-                          title: Text("Clear Memories?", style: dialogHeader),
-                          content: SingleChildScrollView(
-                            child: ListBody(
-                              children: <Widget>[
-                                Text("Are you sure you want to clear Memories?",
-                                    style: dialogBody),
-                                Text("(This action cannot be reversed)",
-                                    style: dialogBody),
-                              ],
-                            ),
-                          ),
-                          actions: <Widget>[
-                            TextButton(
-                              child: Text('Cancel', style: dialogBody),
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            TextButton(
-                              child: Text('OK', style: dialogBody),
-                              onPressed: () {
-                                VibranceDatabase.instance.clearMemoriesDB();
-                                Navigator.of(context).pop();
-                                Navigator.of(context).pop();
-                              },
-                            )
-                          ]);
-                    },
-                  );
-                },
-              ),
-              TextButton(
-                child: Text('Dismiss', style: dialogBody),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  memories.clear();
-                },
-              )
-            ]);
-      },
-    );
-  } else {
-    simpleDialog(context, "No Memories", "There are no Memories to manage.",
-        "Add some Memories to get started.", "info");
+                  },
+                ),
+                TextButton(
+                  child: Text('Dismiss', style: dialogBody),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    memories.clear();
+                  },
+                )
+              ]);
+        },
+      );
+    } else {
+      simpleDialog(context, "No Memories", "There are no Memories to manage.",
+          "Add some Memories to get started.", "info");
+    }
+  } catch (e) {
+    simpleDialog(context, "Unable to retrieve Memories", "Try again later.", "",
+        "error");
   }
 }
 
@@ -1930,8 +1988,8 @@ Future manageServices(BuildContext context) async {
                       child: ListBody(
                           children: List<Widget>.generate(services.length,
                               (int index) {
-                    return ListTile(
-                      onTap: () {
+                    return SimpleDialogOption(
+                      onPressed: () {
                         showDialog(
                           context: context,
                           builder: (BuildContext context) {
@@ -1974,11 +2032,11 @@ Future manageServices(BuildContext context) async {
                                                     child: Text('OK',
                                                         style: dialogBody),
                                                     onPressed: () {
-                                                      services.removeAt(index);
                                                       VibranceDatabase.instance
                                                           .removeService(
                                                               services[index]
                                                                   .servicename);
+                                                      services.removeAt(index);
                                                       Navigator.of(context)
                                                           .pop();
                                                       Navigator.of(context)
@@ -2005,7 +2063,7 @@ Future manageServices(BuildContext context) async {
                           },
                         );
                       },
-                      title: Text((services[index].servicename),
+                      child: Text((services[index].servicename),
                           style: dialogBody),
                     );
                   })))
@@ -2101,6 +2159,8 @@ void clearWeightWarning(BuildContext context) {
               child: Text('OK', style: dialogBody),
               onPressed: () {
                 VibranceDatabase.instance.resetWeight();
+                results.clear();
+                buffer.clear();
                 Navigator.of(context).pop();
               },
             )
@@ -2116,105 +2176,13 @@ void clearState() {
   VibranceDatabase.instance.clearDaysDB();
 }
 
-Future startOnboarding(BuildContext context) async {
+Future onboardProcess(BuildContext context) async {
   await Future.delayed(const Duration(
       milliseconds:
           1000)); //It apparently takes 1 second or so for DB to populate State
 
   if (onboarding == 1) {
-    showModalBottomSheet(
-        context: context,
-        enableDrag: true,
-        backgroundColor: lightMode,
-        isScrollControlled: true,
-        useRootNavigator: true,
-        builder: (BuildContext context) {
-          return StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-            return Wrap(children: [
-              Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 20),
-                    Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                        child: Text("Welcome to $sku",
-                            style: GoogleFonts.newsCycle(
-                              color: Colors.white,
-                              fontSize: 25,
-                            ))),
-                    SizedBox(height: 15),
-                    Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                        child: Text(
-                            "This is $sku, a way to push you forward with your own Memories.",
-                            style: GoogleFonts.newsCycle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ))),
-                    SizedBox(height: 15),
-                    Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                        child: Text(
-                            "Inspire yourself with the help of your Music, Photos, Podcasts, Voice and more.",
-                            style: GoogleFonts.newsCycle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ))),
-                    SizedBox(height: 15),
-                    Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                        child: Text(
-                            "Keep track of how you were feeling with the Journal",
-                            style: GoogleFonts.newsCycle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ))),
-                    SizedBox(height: 15),
-                    Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                        child:
-                            Text("All on Device and not stored in the cloud.",
-                                style: GoogleFonts.newsCycle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ))),
-                    SizedBox(height: 15),
-                    Center(
-                        child: SingleChildScrollView(
-                            child: Column(children: [
-                      const SizedBox(height: 30),
-                      TextButton(
-                        style: ButtonStyle(
-                            minimumSize:
-                                MaterialStatePropertyAll<Size>(Size(250, 50)),
-                            backgroundColor:
-                                MaterialStatePropertyAll<Color>(darkMode),
-                            enableFeedback: true),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          helpDialog(context);
-                        },
-                        child: Text("Quick Start",
-                            style: GoogleFonts.newsCycle(
-                                color: Colors.white, fontSize: 16)),
-                      ),
-                      const SizedBox(height: 50),
-                    ])))
-                  ])
-            ]);
-          });
-        });
-
-    print("Onboarding...");
-  } else {
-    print("No Onboarding...");
+    onboardDialog(context);
   }
 }
 
@@ -2223,7 +2191,8 @@ class MyAppState extends State<MainPage> {
   @override
   initState() {
     super.initState();
-    startOnboarding(context);
+    onboardProcess(context);
+
     if (release == "Pre-Release") {
       scaffoldMessengerKey.currentState?.showSnackBar(SnackBar(
           content: const Text('Pre-Release Version'),
@@ -2245,39 +2214,52 @@ class MyAppState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: CustomTheme.lightTheme,
-        darkTheme: CustomTheme.darkTheme,
-        home: Scaffold(
-          //backgroundColor: color,
-          appBar: AppBar(),
-          bottomNavigationBar: BottomNavigationBar(
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.book), label: 'Journal'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.settings), label: 'Settings')
-              ],
-              currentIndex: pageIndex,
-              selectedItemColor: Colors.grey[200],
-              onTap: ((value) => setState(() {
-                    pageIndex = value;
-                  }))),
-          body: SafeArea(child: pages.elementAt(pageIndex)),
-        ));
+    return Scaffold(
+      //backgroundColor: color,
+      //appBar: AppBar(),
+      bottomNavigationBar: BottomNavigationBar(
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Journal'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.settings), label: 'Settings')
+          ],
+          currentIndex: pageIndex,
+          selectedItemColor: Colors.grey[200],
+          onTap: ((value) => setState(() {
+                pageIndex = value;
+              }))),
+      body: SafeArea(child: pages.elementAt(pageIndex)),
+    );
+  }
+}
+
+Future checkConnection(String url) async {
+  try {
+    final connection = await InternetAddress.lookup(url).timeout(
+      const Duration(seconds: 5),
+    );
+    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+      return true;
+    } else {
+      return false;
+    }
+  } catch (e) {
+    return false;
   }
 }
 
 Future invokeSpotify(BuildContext context) async {
   try {
-    final connection = await InternetAddress.lookup('accounts.spotify.com');
-    if (connection.isNotEmpty && connection[0].rawAddress.isNotEmpty) {
+    if (await checkConnection('accounts.spotify.com') == true) {
       //Let's grab the Services data from the DB and put it into our ServiceData object based List
-      await VibranceDatabase.instance.provideServiceData();
+      if (services.where((item) => (item.servicename) == "Spotify").isEmpty) {
+        //Let's only grab from DB if we really need to...
+        await VibranceDatabase.instance.provideServiceData();
+      }
+
       //Let's find out which item in the list is the Spotify Cred Data...
       var spotifyindex =
           services.indexWhere((item) => (item.servicename) == "Spotify");
@@ -2367,24 +2349,25 @@ Future openResult(BuildContext context) async {
                       runSpacing: 8,
                       children:
                           List<Widget>.generate(memories.length, (int index) {
-                        /*  print("Displaying " +
-                            memories.length.toString() +
-                            " Results..."); */
-                        if (results[index].memoriestype == null) {
-                          results[index].memoriestype = "Default";
+                        if (context.mounted) {
+                          if (results[index].memoriestype == null) {
+                            results[index].memoriestype = "Default";
+                          }
+                          return memoriesEntry(
+                              context,
+                              results[index].memoriesid,
+                              results[index].memoriestextone,
+                              results[index].memoriestexttwo,
+                              results[index].memoriestype,
+                              results[index].memoriessubtype,
+                              results[index].memoriesprovider,
+                              results[index].memoriesargone,
+                              results[index].memoriesargtwo,
+                              results[index].memoriesargthree,
+                              results[index].memoriesargfour);
+                        } else {
+                          return SizedBox();
                         }
-                        return memoriesEntry(
-                            context,
-                            results[index].memoriesid,
-                            results[index].memoriestextone,
-                            results[index].memoriestexttwo,
-                            results[index].memoriestype,
-                            results[index].memoriessubtype,
-                            results[index].memoriesprovider,
-                            results[index].memoriesargone,
-                            results[index].memoriesargtwo,
-                            results[index].memoriesargthree,
-                            results[index].memoriesargfour);
                       })),
                   SizedBox(height: 30),
                 ]))),
@@ -2639,16 +2622,136 @@ Future openResult(BuildContext context) async {
             note);
       }
       break;
+    case 6:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[2].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[4].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[5].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[6].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daytextone: ""));
+
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[2].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[4].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[5].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[6].memoriestype].toString())),
+            note);
+      }
+      break;
+
+    case 7:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(
+              int.parse(memoriesColors[results[0].memoriestype].toString())),
+          daycolortwo: Color(
+              int.parse(memoriesColors[results[1].memoriestype].toString())),
+          daycolorthree: Color(
+              int.parse(memoriesColors[results[3].memoriestype].toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[4].memoriestype].toString())),
+          daycolorfive: Color(
+              int.parse(memoriesColors[results[6].memoriestype].toString())),
+          daycolorsix: Color(
+              int.parse(memoriesColors[results[7].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daytextone: ""));
+
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(
+                int.parse(memoriesColors[results[0].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[1].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[3].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[4].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[6].memoriestype].toString())),
+            Color(
+                int.parse(memoriesColors[results[7].memoriestype].toString())),
+            note);
+      }
+      break;
 
     default:
+      days.add(DayData(
+          daymood: currentMood,
+          daydate: date,
+          daycolorone: Color(int.parse(
+              memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                  .toString())),
+          daycolortwo: Color(int.parse(
+              memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                  .toString())),
+          daycolorthree: Color(int.parse(
+              memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                  .toString())),
+          daycolorfour: Color(
+              int.parse(memoriesColors[results[results.indexOf(results.last)].memoriestype].toString())),
+          daycolorfive: Color(int.parse(memoriesColors[results[results.indexOf(results.last)].memoriestype].toString())),
+          daycolorsix: Color(int.parse(memoriesColors[results[results.indexOf(results.last)].memoriestype].toString())),
+          daynote: note,
+          dayid: dayCounter,
+          daytextone: ""));
+
+      if (journalentries == true) {
+        VibranceDatabase.instance.addDayDB(
+            dayCounter,
+            date,
+            currentMood,
+            Color(int.parse(
+                memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                    .toString())),
+            Color(int.parse(
+                memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                    .toString())),
+            Color(int.parse(
+                memoriesColors[results[results.indexOf(results.first)].memoriestype]
+                    .toString())),
+            Color(int.parse(
+                memoriesColors[results[results.indexOf(results.last)].memoriestype]
+                    .toString())),
+            Color(int.parse(memoriesColors[results[results.indexOf(results.last)].memoriestype].toString())),
+            Color(int.parse(memoriesColors[results[results.indexOf(results.last)].memoriestype].toString())),
+            note);
+      }
+
       break;
   }
 
   cleanBuffers();
 }
-
-@override
-void dispose() {}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -2658,195 +2761,235 @@ class HomePage extends StatefulWidget {
 
 class HomePageState extends State<HomePage> {
   bool isLoading = false;
+
+/*   @override
+  void dispose() {
+    if (isLoading = true) {
+      isLoading = false;
+    }
+    if (buffer.isNotEmpty) {
+      buffer.clear();
+      results.clear();
+    }
+    dispose();
+    super.dispose;
+  } */
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-        duration: Duration(seconds: 1),
-        curve: Curves.fastOutSlowIn,
-        color: backgroundcolor,
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                  child: Text("How are you\nfeeling?",
-                      style: GoogleFonts.newsCycle(
-                        color: Colors.white,
-                        fontSize: 50,
-                      ))),
-              SizedBox(height: 10),
-              Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                  child: Text(generateQuote(),
-                      style: GoogleFonts.newsCycle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontStyle: FontStyle.italic,
-                      ))),
-              SizedBox(height: 20),
-              Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Card(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          ListTile(
-                            leading: Icon(Icons.linear_scale),
-                            title: Text("1 is lowest, 6 is highest",
-                                style:
-                                    GoogleFonts.newsCycle(color: Colors.black)),
+    return Scaffold(
+        appBar: AppBar(backgroundColor: Colors.transparent, actions: [
+          IconButton(
+            icon: Icon(
+              Icons.add,
+              size: 32,
+              color: buttoncolor,
+            ),
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const OnboardingPage())),
+          ),
+        ]),
+        extendBodyBehindAppBar: true,
+        body: AnimatedContainer(
+            duration: Duration(seconds: 1),
+            curve: Curves.fastOutSlowIn,
+            color: backgroundcolor,
+            child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                      child: Text("How are you\nfeeling?",
+                          style: GoogleFonts.newsCycle(
+                            color: Colors.white,
+                            fontSize: 50,
+                          ))),
+                  SizedBox(height: 10),
+                  Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                      child: Text(generateQuote(),
+                          style: GoogleFonts.newsCycle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                          ))),
+                  SizedBox(height: 20),
+                  Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Card(
+                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                leading: Icon(Icons.linear_scale),
+                                title: Text("1 is lowest, 6 is highest",
+                                    style: GoogleFonts.newsCycle(
+                                        color: Colors.black)),
+                              ),
+                              Text("${currentMood.toInt()}/6",
+                                  style: GoogleFonts.newsCycle(
+                                      color: Colors.black, fontSize: 24)),
+                              Slider(
+                                  value: currentMood,
+                                  min: 1,
+                                  max: 6,
+                                  divisions: 5,
+                                  onChanged: (double value) {
+                                    setState(() {
+                                      switch (value) {
+                                        case 1:
+                                          backgroundcolor = lightMode[900];
+                                          buttoncolor =
+                                              Color.fromRGBO(110, 43, 113, 1);
+                                          break;
+                                        case 2:
+                                          backgroundcolor = lightMode[700];
+                                          buttoncolor =
+                                              Color.fromRGBO(110, 43, 113, 1);
+                                          break;
+                                        case 3:
+                                          backgroundcolor = lightMode[500];
+                                          buttoncolor =
+                                              Color.fromRGBO(110, 43, 113, 1);
+                                          break;
+                                        case 4:
+                                          backgroundcolor = lightMode[100];
+                                          buttoncolor =
+                                              Color.fromRGBO(54, 9, 61, 1);
+                                          break;
+                                        case 5:
+                                          backgroundcolor = lightMode[200];
+                                          buttoncolor =
+                                              Color.fromRGBO(54, 9, 61, 1);
+                                          break;
+                                        case 6:
+                                          backgroundcolor = lightMode[400];
+                                          buttoncolor =
+                                              Color.fromRGBO(54, 9, 61, 1);
+                                          break;
+                                      }
+                                      currentMood = value;
+                                    });
+                                  }),
+                            ],
                           ),
-                          Text("${currentMood.toInt()}/6",
-                              style: GoogleFonts.newsCycle(
-                                  color: Colors.black, fontSize: 24)),
-                          Slider(
-                              value: currentMood,
-                              min: 1,
-                              max: 6,
-                              divisions: 5,
-                              onChanged: (double value) {
-                                setState(() {
-                                  switch (value) {
-                                    case 1:
-                                      backgroundcolor = lightMode[900];
-                                      buttoncolor =
-                                          Color.fromRGBO(110, 43, 113, 1);
-                                      break;
-                                    case 2:
-                                      backgroundcolor = lightMode[700];
-                                      buttoncolor =
-                                          Color.fromRGBO(110, 43, 113, 1);
-                                      break;
-                                    case 3:
-                                      backgroundcolor = lightMode[500];
-                                      buttoncolor =
-                                          Color.fromRGBO(110, 43, 113, 1);
-                                      break;
-                                    case 4:
-                                      backgroundcolor = lightMode[100];
-                                      buttoncolor =
-                                          Color.fromRGBO(54, 9, 61, 1);
-                                      break;
-                                    case 5:
-                                      backgroundcolor = lightMode[200];
-                                      buttoncolor =
-                                          Color.fromRGBO(54, 9, 61, 1);
-                                      break;
-                                    case 6:
-                                      backgroundcolor = lightMode[400];
-                                      buttoncolor =
-                                          Color.fromRGBO(54, 9, 61, 1);
-                                      break;
-                                  }
-                                  currentMood = value;
-                                });
-                              }),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextButton(
-                      style: ButtonStyle(
-                          minimumSize:
-                              MaterialStatePropertyAll<Size>(Size(250, 50)),
-                          backgroundColor: MaterialStatePropertyAll<Color>(
-                              Colors.white.withOpacity(0.8)),
-                          enableFeedback: true),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                                title: Text('Enter Note', style: dialogHeader),
-                                content: SingleChildScrollView(
-                                  child: ListBody(
-                                    children: <Widget>[
-                                      Text(
-                                          "You can add addtional context of how you're feeling or when this feeling occurred.",
-                                          style: dialogBody),
-                                      Text(""),
-                                      TextField(
-                                          autofocus: true,
-                                          keyboardType: TextInputType.multiline,
-                                          minLines: 1,
-                                          maxLines: 3,
-                                          decoration: InputDecoration(
-                                              fillColor: Colors.grey[300],
-                                              filled: true,
-                                              border:
-                                                  const OutlineInputBorder(),
-                                              hintText: "Note"),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              noteBuffer = value;
-                                              note = noteBuffer;
-                                            });
-                                          }),
-                                    ],
-                                  ),
-                                ),
-                                actions: <Widget>[
-                                  TextButton(
-                                    child: Text('Cancel', style: dialogBody),
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                  ),
-                                  TextButton(
-                                    child: Text('OK', style: dialogBody),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (noteBuffer == "") {}
-                                        if (noteBuffer == null) {}
-                                        note = noteBuffer;
-                                        noteBuffer = "";
-                                        Navigator.pop(context);
-                                      });
-                                    },
-                                  )
-                                ]);
+                        ),
+                        SizedBox(height: 20),
+                        TextButton(
+                          style: ButtonStyle(
+                              minimumSize:
+                                  MaterialStatePropertyAll<Size>(Size(250, 50)),
+                              backgroundColor: MaterialStatePropertyAll<Color>(
+                                  Colors.white.withOpacity(0.8)),
+                              enableFeedback: true),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                    title:
+                                        Text('Enter Note', style: dialogHeader),
+                                    content: SingleChildScrollView(
+                                      child: ListBody(
+                                        children: <Widget>[
+                                          Text(
+                                              "You can add addtional context of how you're feeling or when this feeling occurred.",
+                                              style: dialogBody),
+                                          Text(""),
+                                          TextField(
+                                              autofocus: true,
+                                              keyboardType:
+                                                  TextInputType.multiline,
+                                              minLines: 1,
+                                              maxLines: 3,
+                                              decoration: InputDecoration(
+                                                  fillColor: Colors.grey[300],
+                                                  filled: true,
+                                                  border:
+                                                      const OutlineInputBorder(),
+                                                  hintText: "Note"),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  noteBuffer = value;
+                                                  note = noteBuffer;
+                                                });
+                                              }),
+                                        ],
+                                      ),
+                                    ),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        child:
+                                            Text('Cancel', style: dialogBody),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                      TextButton(
+                                        child: Text('OK', style: dialogBody),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (noteBuffer.isEmpty) {}
+
+                                            note = noteBuffer;
+                                            noteBuffer = "";
+                                            Navigator.pop(context);
+                                          });
+                                        },
+                                      )
+                                    ]);
+                              },
+                            );
                           },
-                        );
-                      },
-                      child: Text(
-                        "Add Note",
-                        style: TextStyle(color: buttoncolor),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextButton(
-                        style: ButtonStyle(
-                            minimumSize:
-                                MaterialStatePropertyAll<Size>(Size(250, 50)),
-                            backgroundColor: MaterialStatePropertyAll<Color>(
-                                isLoading ? Colors.transparent : buttoncolor),
-                            enableFeedback: true),
-                        onPressed: () {
-                          openResult(context);
-                          setState(() {
-                            isLoading = true;
-                          });
-                          Future.delayed(const Duration(seconds: 3), () {
-                            setState(() {
-                              isLoading = false;
-                            });
-                          });
-                        },
-                        child: isLoading
-                            ? CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : Icon(
-                                Icons.check,
-                                color: Colors.white.withOpacity(0.8),
-                                size: 35,
-                              ))
-                  ])
-            ]));
+                          child: Text(
+                            "Add Note",
+                            style: TextStyle(color: buttoncolor),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        TextButton(
+                            style: ButtonStyle(
+                                minimumSize: MaterialStatePropertyAll<Size>(
+                                    isLoading ? Size(50, 50) : Size(250, 50)),
+                                backgroundColor:
+                                    MaterialStatePropertyAll<Color>(isLoading
+                                        ? Colors.transparent
+                                        : buttoncolor),
+                                enableFeedback: true),
+                            onPressed: () async {
+                              //We need to make sure that we're only loading in data once, multple button presses aren't allowed.
+                              if (isLoading == false) {
+                                setState(() {
+                                  isLoading = true;
+                                });
+                                await openResult(context);
+                                //Future.delayed(const Duration(seconds: 3), () {
+                                setState(() {
+                                  isLoading = false;
+                                });
+                              } else {
+                                null;
+                              }
+                            },
+                            child: isLoading
+                                ? CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : Icon(
+                                    Icons.check,
+                                    color: Colors.white.withOpacity(0.8),
+                                    size: 35,
+                                  ))
+                      ])
+                ])));
   }
 }
 
@@ -3118,10 +3261,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   onPressed: () async {
                     Navigator.of(context).pop();
                     try {
-                      final connection =
-                          await InternetAddress.lookup('accounts.spotify.com');
-                      if (connection.isNotEmpty &&
-                          connection[0].rawAddress.isNotEmpty) {
+                      if (await checkConnection('accounts.spotify.com')) {
                         if (!context.mounted) return;
                         await invokeSpotify(context);
                         spotifyData("Podcasts");
@@ -3177,19 +3317,22 @@ class OnboardingPageState extends State<OnboardingPage> {
                               TextButton(
                                 child: Text('OK', style: dialogBody),
                                 onPressed: () async {
-                                  if (textBuffer == "") {}
-                                  if (textBuffer == null) {}
+                                  if (textBuffer.isEmpty) {}
+
                                   try {
                                     String cleanurl = (textBuffer.replaceAll(
                                         RegExp("http://|https://|rss://"), ""));
-                                    final connection =
-                                        await InternetAddress.lookup(
-                                            cleanurl.substring(
-                                                0, cleanurl.indexOf('/')));
-                                    if (connection.isNotEmpty &&
-                                        connection[0].rawAddress.isNotEmpty) {
+                                    if (await checkConnection(cleanurl
+                                        .substring(0, cleanurl.indexOf('/')))) {
                                       var rssfeed = await client
-                                          .get(Uri.parse(textBuffer));
+                                          .get(Uri.parse(textBuffer))
+                                          .timeout(
+                                        const Duration(seconds: 5),
+                                        onTimeout: () {
+                                          print("A Timeout Error Occured.");
+                                          return http.Response('Error', 408);
+                                        },
+                                      );
                                       VibranceDatabase.instance
                                           .updateMemoriesDB(
                                               "Podcast",
@@ -3233,83 +3376,114 @@ class OnboardingPageState extends State<OnboardingPage> {
     }
 
     Future eventOnboarding() async {
-/*       if (Platform.isIOS &&
-          Platform.operatingSystemVersion.startsWith("Version 17") &&
-          enableCalendars2023OS == false) {
-        simpleDialog(
-            context,
-            "Unable to Access Calendars",
-            "Calendar Support is Currently Unavailable on iOS 17, iPadOS 17 and macOS Sonoma",
-            "Support will be added at a later time. ",
-            "error");
-      } else { */
-      try {
-        print((await deviceCalendarPlugin.hasPermissions()).data);
-        //Because allCalendars is locked, lets make a buffer to store the data that we can touch
-        if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
-          allCalendars = await deviceCalendarPlugin.retrieveCalendars();
-          // print(allCalendars.data);
-          allCalendarsBuffer = allCalendars?.data;
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              title: Text('Choose Provider', style: dialogHeader),
+              content: SingleChildScrollView(
+                  child: ListBody(children: <Widget>[
+                SimpleDialogOption(
+                  onPressed: () async {
+                    /*       if (Platform.isIOS &&
+                        Platform.operatingSystemVersion.startsWith("Version 17") &&
+                        enableCalendars2023OS == false) {
+                      simpleDialog(
+                          context,
+                          "Unable to Access Calendars",
+                          "Calendar Support is Currently Unavailable on iOS 17, iPadOS 17 and macOS Sonoma",
+                          "Support will be added at a later time. ",
+                          "error");
+                    } else { */
+                    try {
+                      print((await deviceCalendarPlugin.hasPermissions()).data);
+                      //Because allCalendars is locked, lets make a buffer to store the data that we can touch
+                      if ((await deviceCalendarPlugin.hasPermissions()).data ==
+                          true) {
+                        allCalendars =
+                            await deviceCalendarPlugin.retrieveCalendars();
 
-          //We want to grab the calendar name so that we know where to grab events from
-          List<Widget> allCalendarsList(BuildContext context) {
-            return List<Widget>.generate(allCalendarsBuffer.length,
-                (int index) {
-              return SimpleDialogOption(
+                        // print(allCalendars.data);
+                        allCalendarsBuffer = allCalendars?.data;
+
+                        //We want to grab the calendar name so that we know where to grab events from
+                        List<Widget> allCalendarsList(BuildContext context) {
+                          return List<Widget>.generate(
+                              allCalendarsBuffer.length, (int index) {
+                            return SimpleDialogOption(
+                                onPressed: () {
+                                  VibranceDatabase.instance.updateMemoriesDB(
+                                      "Event",
+                                      "Calendar",
+                                      "System",
+                                      allCalendarsBuffer[index].name,
+                                      "",
+                                      "",
+                                      "",
+                                      "");
+                                  Navigator.pop(context);
+                                },
+                                child: Text(allCalendarsBuffer[index].name,
+                                    style: GoogleFonts.newsCycle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    )));
+                          });
+                        }
+
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                                title: Text('Select Calendar',
+                                    style: dialogHeader),
+                                content: SingleChildScrollView(
+                                  child: ListBody(
+                                      children: allCalendarsList(context)),
+                                ),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text('OK', style: dialogBody),
+                                    onPressed: () {
+                                      setState(() {
+                                        Navigator.pop(context);
+                                      });
+                                    },
+                                  )
+                                ]);
+                          },
+                        );
+                      } else {
+                        allCalendars =
+                            await deviceCalendarPlugin.requestPermissions();
+                        if ((await deviceCalendarPlugin.hasPermissions())
+                                .data ==
+                            true) {
+                          eventOnboarding();
+                        } else {
+                          simpleDialog(context, "Unable to Retrieve Calendars",
+                              "Check your Settings and try again", "", "error");
+                        }
+                      }
+                    } catch (e) {
+                      //print(e);
+                      simpleDialog(context, "Unable to Retrieve Calendars",
+                          "Check your Settings and try again", "", "error");
+                    }
+                  },
+                  child: Text('System Calendar', style: dialogBody),
+                ),
+              ])),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('OK', style: dialogBody),
                   onPressed: () {
-                    VibranceDatabase.instance.updateMemoriesDB(
-                        "Event",
-                        "Calendar",
-                        "System",
-                        allCalendarsBuffer[index].name,
-                        "",
-                        "",
-                        "",
-                        "");
                     Navigator.pop(context);
                   },
-                  child: Text(allCalendarsBuffer[index].name,
-                      style: GoogleFonts.newsCycle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      )));
-            });
-          }
-
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                  title: Text('Select Calendar', style: dialogHeader),
-                  content: SingleChildScrollView(
-                    child: ListBody(children: allCalendarsList(context)),
-                  ),
-                  actions: <Widget>[
-                    TextButton(
-                      child: Text('OK', style: dialogBody),
-                      onPressed: () {
-                        setState(() {
-                          Navigator.pop(context);
-                        });
-                      },
-                    )
-                  ]);
-            },
-          );
-        } else {
-          allCalendars = await deviceCalendarPlugin.requestPermissions();
-          if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
-            eventOnboarding();
-          } else {
-            simpleDialog(context, "Unable to Retrieve Calendars",
-                "Check your Settings and try again", "", "error");
-          }
-        }
-      } catch (e) {
-        //print(e);
-        simpleDialog(context, "Unable to Retrieve Calendars",
-            "Check your Settings and try again", "", "error");
-      }
+                )
+              ]);
+        },
+      );
     }
 
     Future textOnboarding(BuildContext context) async {
@@ -3350,8 +3524,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                   child: Text('OK', style: dialogBody),
                   onPressed: () {
                     setState(() {
-                      if (textBuffer == "") {}
-                      if (textBuffer == null) {}
+                      if (textBuffer.isEmpty) {}
                       VibranceDatabase.instance.updateMemoriesDB(
                           "Text", "", "System", textBuffer, "", "", "", "");
                       Navigator.pop(context);
@@ -3442,19 +3615,76 @@ class OnboardingPageState extends State<OnboardingPage> {
     }
 
     Future photoOnboarding(BuildContext context) async {
-      try {
-        final selectedPhotoToData;
-        final XFile? selectedPhoto =
-            await photo.pickImage(source: ImageSource.gallery);
-        if (selectedPhoto != null) {
-          selectedPhotoToData = await selectedPhoto.readAsBytes();
-          VibranceDatabase.instance.updateMemoriesDB("Photo", "Photo", "System",
-              "Photo", "", selectedPhotoToData, "", "");
-        }
-      } catch (e) {
-        simpleDialog(context, "Unable to Retrieve Photos",
-            "Check your Settings and try again", "", "error");
-      }
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+              title: Text('Choose Provider', style: dialogHeader),
+              content: SingleChildScrollView(
+                  child: ListBody(children: <Widget>[
+                SimpleDialogOption(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    try {
+                      final selectedPhotoToData;
+                      final XFile? selectedPhoto =
+                          await photo.pickImage(source: ImageSource.gallery);
+                      if (selectedPhoto != null) {
+                        selectedPhotoToData = await selectedPhoto.readAsBytes();
+                        VibranceDatabase.instance.updateMemoriesDB(
+                            "Photo",
+                            "Photo",
+                            "System",
+                            "Photo",
+                            "",
+                            selectedPhotoToData,
+                            "",
+                            "");
+                      }
+                    } catch (e) {
+                      simpleDialog(context, "Unable to Retrieve Photos",
+                          "Check your Settings and try again", "", "error");
+                    }
+                  },
+                  child: Text('System Photos', style: dialogBody),
+                ),
+                SimpleDialogOption(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    try {
+                      final selectedPhotoToData;
+                      final XFile? selectedPhoto =
+                          await photo.pickImage(source: ImageSource.camera);
+                      if (selectedPhoto != null) {
+                        selectedPhotoToData = await selectedPhoto.readAsBytes();
+                        VibranceDatabase.instance.updateMemoriesDB(
+                            "Photo",
+                            "Photo",
+                            "System",
+                            "Photo",
+                            "",
+                            selectedPhotoToData,
+                            "",
+                            "");
+                      }
+                    } catch (e) {
+                      simpleDialog(context, "Unable to Retrieve Photos",
+                          "Check your Settings and try again", "", "error");
+                    }
+                  },
+                  child: Text('System Camera', style: dialogBody),
+                ),
+              ])),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('OK', style: dialogBody),
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                )
+              ]);
+        },
+      );
     }
 
     return Scaffold(
@@ -3504,13 +3734,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                                     onPressed: () async {
                                       Navigator.of(context).pop();
                                       try {
-                                        final connection =
-                                            await InternetAddress.lookup(
-                                                'accounts.spotify.com');
-                                        if (connection.isNotEmpty &&
-                                            connection[0]
-                                                .rawAddress
-                                                .isNotEmpty) {
+                                        if (await checkConnection(
+                                            'accounts.spotify.com')) {
                                           if (!context.mounted) return;
                                           await invokeSpotify(context);
                                           spotifyData("Music");
@@ -3749,6 +3974,9 @@ class JournalPageState extends State<JournalPage> {
         String note,
         int id) {
       mood = mood.toInt();
+      if (note.isEmpty) {
+        note = "(No Note added.)";
+      }
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -3865,10 +4093,9 @@ class JournalPageState extends State<JournalPage> {
                                                     onPressed: () {
                                                       Navigator.of(context)
                                                           .pop();
-                                                      if (noteBuffer == "") {
+                                                      if (noteBuffer.isEmpty) {
                                                         noteBuffer = "";
                                                       }
-                                                      noteBuffer ??= "";
                                                       note = noteBuffer;
                                                       noteBuffer = "";
                                                       Navigator.pop(context);
@@ -4042,22 +4269,45 @@ class JournalPageState extends State<JournalPage> {
               )));
     }
 
-    List<Widget> makeJournalEntry(BuildContext context) {
-      return List<Widget>.generate(journal.length, (int index) {
-        return journalEntry(
-            context,
-            days[index].daytextone,
-            days[index].daymood,
-            days[index].daydate,
-            days[index].daycolorone,
-            days[index].daycolortwo,
-            days[index].daycolorthree,
-            days[index].daycolorfour,
-            days[index].daycolorfive,
-            days[index].daycolorsix,
-            days[index].daynote,
-            (index + 1));
-      });
+    List<Widget> makeJournalEntry(BuildContext context, String filters) {
+      switch (filters) {
+        case "Today":
+          setState(() {
+            days.removeWhere((item) => (item.daydate) != date);
+            journal.removeRange(days.length, journal.length);
+          });
+          return List<Widget>.generate(days.length, (int index) {
+            return journalEntry(
+                context,
+                days[index].daytextone,
+                days[index].daymood,
+                days[index].daydate,
+                days[index].daycolorone,
+                days[index].daycolortwo,
+                days[index].daycolorthree,
+                days[index].daycolorfour,
+                days[index].daycolorfive,
+                days[index].daycolorsix,
+                days[index].daynote,
+                (index + 1));
+          });
+        default:
+          return List<Widget>.generate(journal.length, (int index) {
+            return journalEntry(
+                context,
+                days[index].daytextone,
+                days[index].daymood,
+                days[index].daydate,
+                days[index].daycolorone,
+                days[index].daycolortwo,
+                days[index].daycolorthree,
+                days[index].daycolorfour,
+                days[index].daycolorfive,
+                days[index].daycolorsix,
+                days[index].daynote,
+                (index + 1));
+          });
+      }
     }
 
     Widget actionMenu() => PopupMenuButton<int>(
@@ -4081,6 +4331,30 @@ class JournalPageState extends State<JournalPage> {
                 style: GoogleFonts.newsCycle(
                     fontWeight: FontWeight.w700, color: Colors.black),
               ),
+            ),
+            PopupMenuItem(
+              value: 3,
+              onTap: () {
+                setState(() {
+                  if (filter == "") {
+                    filter = "Today";
+                  } else {
+                    filter = "";
+                    reenumerateState();
+                  }
+                });
+              },
+              child: filter == "Today"
+                  ? Text(
+                      "Show All Entries",
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w700, color: Colors.black),
+                    )
+                  : Text(
+                      "Show Only Today's Entries",
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w700, color: Colors.black),
+                    ),
             ),
           ],
         );
@@ -4128,29 +4402,34 @@ class JournalPageState extends State<JournalPage> {
       }
     }
 
-    return SingleChildScrollView(
-        child: Column(children: [
-      Card(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.bookmark),
-              trailing: actionMenu(),
-              title: Text("Journal",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              subtitle: Text(
-                  "Today is " + DateTime.now().toString().substring(0, 10),
-                  style: GoogleFonts.newsCycle(
-                      color: Color.fromRGBO(81, 81, 81, 1))),
-            ),
-          ],
+    return Scaffold(
+        appBar: AppBar(
+          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
         ),
-      ),
-      summaryButton(),
-      Wrap(direction: Axis.horizontal, children: makeJournalEntry(context)),
-    ]));
+        body: Column(children: [
+          Card(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.bookmark),
+                  trailing: actionMenu(),
+                  title: Text("Journal",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(
+                      "Today is " + DateTime.now().toString().substring(0, 10),
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ],
+            ),
+          ),
+          summaryButton(),
+          Expanded(
+            child: ListView(children: makeJournalEntry(context, filter)),
+          )
+        ]));
   }
 }
 
@@ -4161,6 +4440,72 @@ class SummaryPage extends StatefulWidget {
 }
 
 class SummaryPageState extends State<SummaryPage> {
+  String calcuateDaysAverage() {
+    double average = 0;
+    for (int i = 0; i < days.length; i++) {
+      average += (days[i].daymood);
+    }
+    return (average ~/ days.length).toString();
+  }
+
+  String calculateDaysMinMax(String minmax) {
+    List<double> list = [];
+    for (int i = 0; i < days.length; i++) {
+      list.add((days[i].daymood));
+    }
+    switch (minmax) {
+      case "Min":
+        return (list.reduce(min).toInt()).toString();
+
+      case "Max":
+        return (list.reduce(max).toInt()).toString();
+
+      default:
+        return "0";
+    }
+  }
+
+  String featuredMemory() {
+    //This could be done a lot better...
+    List list = [];
+    var occurrences = {};
+    var weight = 0;
+    String highestoccurrence = "";
+    for (int i = 0; i < days.length; i++) {
+      //Let's put all the elements into one list we can play around with...
+      list.add(days[i].daycolorone);
+      list.add(days[i].daycolortwo);
+      list.add(days[i].daycolorthree);
+      list.add(days[i].daycolorfour);
+      list.add(days[i].daycolorone);
+      list.add(days[i].daycolorfive);
+      list.add(days[i].daycolorsix);
+    }
+    for (int i = 0; i < list.length; i++) {
+      //Converting all the colors in the entries to thier corresponding type...
+      list.insert(
+          0,
+          memoriesColors.keys.firstWhere(
+              (j) => memoriesColors[j] == int.parse(colorToString(list[i])),
+              orElse: () => "N/A"));
+      list.removeAt(i + 1);
+    }
+    for (var x in list) {
+      occurrences[x] = !occurrences.containsKey(x) ? (1) : (occurrences[x] + 1);
+    }
+    list.clear();
+    occurrences.forEach((k, v) {
+      if (v > weight) {
+        weight = v;
+        highestoccurrence = k;
+      }
+    });
+    if (highestoccurrence == "Default") {
+      highestoccurrence = "N/A";
+    }
+    return highestoccurrence;
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget graphSummary() {
@@ -4278,21 +4623,6 @@ class SummaryPageState extends State<SummaryPage> {
                 ),
               ])),
           Card(
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.numbers),
-                  title: Text("Average Mood",
-                      style: GoogleFonts.newsCycle(color: Colors.black)),
-                  subtitle: Text(
-                      "${((days[days.length - 1].daymood + days[days.length - 2].daymood + days[days.length - 3].daymood + days[days.length - 4].daymood + days[days.length - 5].daymood) / days.length).toInt()}/6",
-                      style: GoogleFonts.newsCycle(
-                          color: Color.fromRGBO(81, 81, 81, 1))),
-                ),
-              ])),
-          Card(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -4301,6 +4631,62 @@ class SummaryPageState extends State<SummaryPage> {
               ],
             ),
           ),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.sunny),
+                  title: Text("Most Featured Memory Type",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(featuredMemory(),
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.remove_circle_outline),
+                  title: Text("Average Mood",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(calcuateDaysAverage() + "/6",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.arrow_circle_up),
+                  title: Text("Highest Reported Mood",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(calculateDaysMinMax("Max") + "/6",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.arrow_circle_down),
+                  title: Text("Lowest Reported Mood",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text(calculateDaysMinMax("Min") + "/6",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ])),
         ])));
   }
 }
@@ -4314,130 +4700,134 @@ class SettingsPage extends StatefulWidget {
 class SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-        child: Column(children: [
-      Card(
-        color: Colors.purple[50],
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.info),
-              title:
-                  Text(sku, style: GoogleFonts.newsCycle(color: Colors.black)),
-              subtitle: Text("Version $version, ($release)",
-                  style: GoogleFonts.newsCycle(
-                      color: Color.fromRGBO(81, 81, 81, 1))),
-            ),
-          ],
+    return Scaffold(
+        appBar: AppBar(
+          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
         ),
-      ),
-      Card(
-          color: Colors.purple[50],
-          child: Column(
+        body: SingleChildScrollView(
+            child: Column(children: [
+          Card(
+            color: Colors.purple[50],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.info),
+                  title: Text(sku,
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  subtitle: Text("Version $version, ($release)",
+                      style: GoogleFonts.newsCycle(
+                          color: Color.fromRGBO(81, 81, 81, 1))),
+                ),
+              ],
+            ),
+          ),
+          Card(
+              color: Colors.purple[50],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  ListTile(
+                    leading: Icon(Icons.person),
+                    title: Text("With 💖 by Kevin George",
+                        style: GoogleFonts.newsCycle(color: Colors.black)),
+                    subtitle: Text("http://kgeok.github.io/",
+                        style: GoogleFonts.newsCycle(
+                            color: Color.fromRGBO(81, 81, 81, 1))),
+                    onTap: () => redirectURL("https://kgeok.github.io"),
+                  ),
+                ],
+              )),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.group),
+                  title: Text("Acknowledgements",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => showLicensePage(
+                      context: context,
+                      useRootNavigator: false,
+                      applicationName: sku,
+                      applicationVersion: version,
+                      applicationLegalese: "Kevin George"),
+                ),
+                ListTile(
+                  leading: Icon(Icons.phone_callback),
+                  title: Text("Additional Resources",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => resourcesDialog(context),
+                ),
+                ListTile(
+                  leading: Icon(Icons.lock),
+                  title: Text("Privacy Policy",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => redirectURL(
+                      "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
+                ),
+                ListTile(
+                  leading: Icon(Icons.flag),
+                  title: Text("Quick Start",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => helpDialog(context),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.library_add),
+                  title: Text("Add Memories",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const OnboardingPage())),
+                ),
+                ListTile(
+                  leading: Icon(Icons.playlist_add_check_rounded),
+                  title: Text("Manage Memories",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => manageMemories(context),
+                ),
+                ListTile(
+                  leading: Icon(Icons.manage_accounts),
+                  title: Text("Manage Providers",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => manageServices(context),
+                ),
+                ListTile(
+                  leading: Icon(Icons.swap_horiz),
+                  title: Text("Reset Memories Sorting",
+                      style: GoogleFonts.newsCycle(color: Colors.red)),
+                  onTap: () => clearWeightWarning(context),
+                )
+              ])),
+          Card(
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               ListTile(
-                leading: Icon(Icons.person),
-                title: Text("With 💖 by Kevin George",
-                    style: GoogleFonts.newsCycle(color: Colors.black)),
-                subtitle: Text("http://kgeok.github.io/",
-                    style: GoogleFonts.newsCycle(
-                        color: Color.fromRGBO(81, 81, 81, 1))),
-                onTap: () => redirectURL("https://kgeok.github.io"),
+                leading: Icon(Icons.restore_page),
+                title: Text("Clear Journal",
+                    style: GoogleFonts.newsCycle(color: Colors.red)),
+                onTap: () => clearDaysWarning(context),
               ),
-            ],
-          )),
-      Card(
-          child: Column(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.group),
-              title: Text("Acknowledgements",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => showLicensePage(
-                  context: context,
-                  useRootNavigator: false,
-                  applicationName: sku,
-                  applicationVersion: version,
-                  applicationLegalese: "Kevin George"),
-            ),
-            ListTile(
-              leading: Icon(Icons.phone_callback),
-              title: Text("Additional Resources",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => resourcesDialog(context),
-            ),
-            ListTile(
-              leading: Icon(Icons.lock),
-              title: Text("Privacy Policy",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => redirectURL(
-                  "https://github.com/kgeok/Vibrance/blob/main/PrivacyPolicy.pdf"),
-            ),
-            ListTile(
-              leading: Icon(Icons.flag),
-              title: Text("Quick Start",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => helpDialog(context),
-            ),
-          ])),
-      Card(
-          child: Column(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.library_add),
-              title: Text("Add Memories",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const OnboardingPage())),
-            ),
-            ListTile(
-              leading: Icon(Icons.playlist_add_check_rounded),
-              title: Text("Manage Memories",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => manageMemories(context),
-            ),
-            ListTile(
-              leading: Icon(Icons.apps),
-              title: Text("Manage Providers",
-                  style: GoogleFonts.newsCycle(color: Colors.black)),
-              onTap: () => manageServices(context),
-            ),
-            ListTile(
-              leading: Icon(Icons.line_weight),
-              title: Text("Reset Memories Sorting",
-                  style: GoogleFonts.newsCycle(color: Colors.red)),
-              onTap: () => clearWeightWarning(context),
-            )
-          ])),
-      Card(
-          child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          ListTile(
-            leading: Icon(Icons.restore_page),
-            title: Text("Reset Journal",
-                style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => clearDaysWarning(context),
-          ),
 /*           ListTile(
             leading: Icon(Icons.texture_sharp),
             title: Text("Add Test Entry",
                 style: GoogleFonts.newsCycle(color: Colors.red)),
             onTap: () => testOnboarding(),
           ), */
-        ],
-      )),
-    ]));
+            ],
+          )),
+        ])));
   }
 }

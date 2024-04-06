@@ -6,7 +6,7 @@ String generateQuote() {
   Future.delayed(const Duration(seconds: 1));
   int random = int.parse(DateTime.now().toString().substring(8, 10));
   result =
-      "${quotes.values.elementAt(random)} - ${quotes.keys.elementAt(random)}";
+      "\"${quotes.values.elementAt(random)}\"\n— ${quotes.keys.elementAt(random)}";
   return result;
 }
 

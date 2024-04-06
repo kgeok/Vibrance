@@ -150,45 +150,108 @@ void complexDialog(BuildContext context, var header, var body1, var body2,
   );
 }
 
-void onboardDialog(BuildContext context, var header, var body1, var body2,
-    var body3, var body4) {
-  showDialog(
+void onboardDialog(BuildContext context) {
+  showModalBottomSheet(
+    isScrollControlled: true,
     context: context,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10.0),
+    ),
+    constraints: const BoxConstraints(maxWidth: 500),
     builder: (BuildContext context) {
-      return AlertDialog(
-          backgroundColor:
-              MediaQuery.of(context).platformBrightness == Brightness.light
-                  ? lightMode.withOpacity(1)
-                  : darkMode.withOpacity(1),
-          title: Text(header, style: dialogHeader),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text(body1, style: dialogBody),
-                Text("", style: dialogBody),
-                Text(body2, style: dialogBody),
-                Text("", style: dialogBody),
-                Text(body3, style: dialogBody),
-                Text("", style: dialogBody),
-                Text(body4, style: dialogBody),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text("Quick Start", style: dialogBody),
-              onPressed: () {
-                Navigator.of(context).pop();
-                helpDialog(context);
-              },
-            ),
-            TextButton(
-              child: Text("OK", style: dialogBody),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            )
-          ]);
+      return Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          color: MediaQuery.of(context).platformBrightness == Brightness.light
+              ? lightMode.withOpacity(1)
+              : darkMode.withOpacity(1),
+          child: FractionallySizedBox(
+              // heightFactor: 0.6,
+              child: SingleChildScrollView(
+                  child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 35, 0, 0),
+                child: Text("Welcome to $sku",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.newsCycle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        color: Colors.white)),
+              ),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
+                  child: Text(
+                      "Our memories are a valuable source of inspiration.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white))),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Text(
+                      "Inspire yourself with the help of your Music, Photos, Podcasts, Voice and more.",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white))),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Text(
+                      "Keep track of how you were feeling with the Journal",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white))),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Text(
+                      "Use the slider to rate how you are feeling on a scale from 1-6 (1 being the lowest and 6 being the highest)",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white))),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                  child: Text(
+                      "Add memories in Settings to help inspire you after rating your mood",
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white))),
+              Center(
+                  child: SingleChildScrollView(
+                      child: Column(children: [
+                const SizedBox(height: 30),
+                TextButton(
+                  style: ButtonStyle(
+                      minimumSize:
+                          const MaterialStatePropertyAll<Size>(Size(250, 50)),
+                      backgroundColor: MaterialStatePropertyAll<Color>(
+                        MediaQuery.of(context).platformBrightness ==
+                                Brightness.light
+                            ? darkMode.withOpacity(1)
+                            : lightMode.withOpacity(1),
+                      ),
+                      enableFeedback: true),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text("Get Started",
+                      style: GoogleFonts.newsCycle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 16)),
+                ),
+                const SizedBox(height: 50),
+              ])))
+            ],
+          ))));
     },
   );
 }
@@ -247,11 +310,11 @@ void helpDialog(BuildContext context) {
             child: ListBody(
               children: <Widget>[
                 Text(
-                    'Use the slider to rate how you are feeling on a scale from 1-6',
+                    'Use the slider to rate how you are feeling on a scale from 1-6 (1 being the lowest and 6 being the highest)',
                     style: dialogBody),
                 const Text(''),
                 Text(
-                    'Add content in Settings to help inspire you after rating your mood',
+                    'Add memories in Settings to help inspire you after rating your mood',
                     style: dialogBody),
                 const Text(''),
                 Text('Open the Journal to get a record of your mood ratings',
