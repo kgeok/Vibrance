@@ -58,7 +58,6 @@ var results = [];
 var services = [];
 List<int> journal = [];
 List<int> memories = [];
-DateTime currentDate = DateTime.now();
 var spotifyApp;
 final record = AudioRecorder();
 final photo = ImagePicker();
@@ -68,6 +67,7 @@ var deviceCalendarPlugin = DeviceCalendarPlugin();
 var allCalendars;
 var allCalendarsBuffer;
 bool isRecording = false;
+DateTime currentDate = DateTime.now();
 String date = currentDate.toString().substring(0, 10);
 int dayCounter = 0;
 var pageIndex = 0;
@@ -2824,7 +2824,9 @@ class HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Card(
-                          color: Theme.of(context).colorScheme.surfaceVariant,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
@@ -2886,8 +2888,8 @@ class HomePageState extends State<HomePage> {
                         TextButton(
                           style: ButtonStyle(
                               minimumSize:
-                                  MaterialStatePropertyAll<Size>(Size(250, 50)),
-                              backgroundColor: MaterialStatePropertyAll<Color>(
+                                  WidgetStatePropertyAll<Size>(Size(250, 50)),
+                              backgroundColor: WidgetStatePropertyAll<Color>(
                                   Colors.white.withOpacity(0.8)),
                               enableFeedback: true),
                           onPressed: () {
@@ -2957,10 +2959,10 @@ class HomePageState extends State<HomePage> {
                         SizedBox(height: 20),
                         TextButton(
                             style: ButtonStyle(
-                                minimumSize: MaterialStatePropertyAll<Size>(
+                                minimumSize: WidgetStatePropertyAll<Size>(
                                     isLoading ? Size(50, 50) : Size(250, 50)),
-                                backgroundColor:
-                                    MaterialStatePropertyAll<Color>(isLoading
+                                backgroundColor: WidgetStatePropertyAll<Color>(
+                                    isLoading
                                         ? Colors.transparent
                                         : buttoncolor),
                                 enableFeedback: true),
@@ -3561,9 +3563,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                                     )),
                           TextButton(
                             style: ButtonStyle(
-                                backgroundColor:
-                                    MaterialStatePropertyAll<Color>(
-                                        Colors.white.withOpacity(0.8)),
+                                backgroundColor: WidgetStatePropertyAll<Color>(
+                                    Colors.white.withOpacity(0.8)),
                                 enableFeedback: true),
                             onPressed: (() async {
                               if (isRecording == false) {
@@ -4573,7 +4574,7 @@ class SummaryPageState extends State<SummaryPage> {
                           lineTouchData: LineTouchData(
                             enabled: true,
                             touchTooltipData: LineTouchTooltipData(
-                              tooltipBgColor: lightMode,
+                              //tooltipBgColor: lightMode,
                               tooltipRoundedRadius: 20.0,
                               showOnTopOfTheChartBoxArea: true,
                               fitInsideHorizontally: true,
