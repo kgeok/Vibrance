@@ -13,50 +13,27 @@ Future populateBuffer() async {
   counter ??= 0;
   print("Making decisions to display Memories...");
   for (var i = 0; i <= counter - 1; i++) {
-    var typeBuffer = await db.query("Memories", columns: ["type"]);
-    var type = typeBuffer[i]["type"].toString();
-
-    var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
-    var subtype = subtypeBuffer[i]["subtype"].toString();
-
-    var providerBuffer = await db.query("Memories", columns: ["provider"]);
-    var provider = providerBuffer[i]["provider"].toString();
-
-    var textoneBuffer = await db.query("Memories", columns: ["textone"]);
-    var textone = textoneBuffer[i]["textone"].toString();
-
-    var texttwoBuffer = await db.query("Memories", columns: ["texttwo"]);
-    var texttwo = texttwoBuffer[i]["texttwo"].toString();
-
-    var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
-    var argone = argoneBuffer[i]["rawone"];
-
-    var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
-    var argtwo = argtwoBuffer[i]["rawtwo"];
-
-    var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
-    var argthree = argthreeBuffer[i]["rawthree"];
-
-    var weightBuffer = await db.query("Memories", columns: ["weight"]);
-    var weight = weightBuffer[i]["weight"];
+    var memoriesdbResults = await db.query("Memories");
 
     //We use a new buffer since it's not hooked to anything
 
     buffer.add(MemoriesData(
         memoriesid: i + 1,
-        memoriestextone: textone,
-        memoriestexttwo: texttwo,
-        memoriestype: type,
-        memoriessubtype: subtype,
-        memoriesprovider: provider,
-        memoriesargone: argone,
-        memoriesargtwo: argtwo,
-        memoriesargthree: argthree,
-        memoriesweight: weight));
+        memoriestextone: memoriesdbResults[i]["textone"].toString(),
+        memoriestexttwo: memoriesdbResults[i]["texttwo"].toString(),
+        memoriestype: memoriesdbResults[i]["type"].toString(),
+        memoriessubtype: memoriesdbResults[i]["subtype"].toString(),
+        memoriesprovider: memoriesdbResults[i]["provider"].toString(),
+        memoriesdate: memoriesdbResults[i]["date"].toString(),
+        memoriesargone: memoriesdbResults[i]["rawone"],
+        memoriesargtwo: memoriesdbResults[i]["rawtwo"],
+        memoriesargthree: memoriesdbResults[i]["rawthree"],
+        memoriesargfour: memoriesdbResults[i]["rawfour"],
+        memoriesweight: memoriesdbResults[i]["weight"]));
   }
 }
 
-Future makeDecisions(BuildContext context) async {
+Future makeDecisions(BuildContext context, mood) async {
   //Let's not overfill the screen...
   int entriesAmount = 6;
   if (MediaQuery.of(context).size.height < 1000) {
@@ -67,7 +44,7 @@ Future makeDecisions(BuildContext context) async {
 
   buffer.clear();
   await populateBuffer();
-
+  //We have the buffer filled, now let's filter it down
   Future pushContentFromBuffer(i) async {
     switch (buffer[i].memoriestype) {
       case "Podcast":
@@ -79,6 +56,34 @@ Future makeDecisions(BuildContext context) async {
           await invokeSpotify(context);
           await probeLatestPodcastSpotify(
               buffer[i].memoriesargone, buffer[i].memoriesargtwo);
+        }
+        break;
+
+      case "Photos":
+        if (buffer[i].rawone.computeLuminance < 0.5) {
+          if (mood < 4) {
+            results.add(MemoriesData(
+                memoriesid: buffer[i].memoriesid,
+                memoriestextone: buffer[i].memoriestextone,
+                memoriestexttwo: buffer[i].memoriestexttwo,
+                memoriestype: buffer[i].memoriestype,
+                memoriessubtype: buffer[i].memoriessubtype,
+                memoriesprovider: buffer[i].memoriesprovider,
+                memoriesweight: buffer[i].memoriesweight,
+                memoriesargone: buffer[i].memoriesargone,
+                memoriesargtwo: buffer[i].memoriesargtwo,
+                memoriesargthree: buffer[i].memoriesargthree));
+            memories.add(i);
+            if (sorting == true) {
+              if (buffer[i].memoriesweight > 1.1) {
+                VibranceDatabase.instance.updateWeight(
+                    buffer[i].memoriesid, buffer[i].memoriesweight - 1);
+              } else {
+                VibranceDatabase.instance.updateWeight(
+                    buffer[i].memoriesid, buffer[i].memoriesweight + 1);
+              }
+            }
+          }
         }
         break;
 
@@ -267,53 +272,23 @@ Future pullAllMemoriesData() async {
   var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
   var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
   counter ??= 0;
+  var memoriesdbResults = await db.query("Memories");
   print("Pulling all Memories Data...");
   for (var i = 0; i <= counter - 1; i++) {
-    var typeBuffer = await db.query("Memories", columns: ["type"]);
-    var type = typeBuffer[i]["type"].toString();
-
-    var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
-    var subtype = subtypeBuffer[i]["subtype"].toString();
-
-    var providerBuffer = await db.query("Memories", columns: ["provider"]);
-    var provider = providerBuffer[i]["provider"].toString();
-
-    var textoneBuffer = await db.query("Memories", columns: ["textone"]);
-    var textone = textoneBuffer[i]["textone"].toString();
-
-    var texttwoBuffer = await db.query("Memories", columns: ["texttwo"]);
-    var texttwo = texttwoBuffer[i]["texttwo"].toString();
-
-    var dateBuffer = await db.query("Memories", columns: ["date"]);
-    var date = dateBuffer[i]["date"].toString();
-
-    var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
-    var argone = argoneBuffer[i]["rawone"];
-
-    var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
-    var argtwo = argtwoBuffer[i]["rawtwo"];
-
-    var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
-    var argthree = argthreeBuffer[i]["rawthree"];
-
-    var weightBuffer = await db.query("Memories", columns: ["weight"]);
-    var weight = weightBuffer[i]["weight"];
-
     results.add(MemoriesData(
         memoriesid: i,
-        memoriestextone: textone,
-        memoriestexttwo: texttwo,
-        memoriestype: type,
-        memoriessubtype: subtype,
-        memoriesprovider: provider,
-        memoriesweight: weight,
-        memoriesdate: date,
-        memoriesargone: argone,
-        memoriesargtwo: argtwo,
-        memoriesargthree: argthree));
+        memoriestextone: memoriesdbResults[i]["textone"].toString(),
+        memoriestexttwo: memoriesdbResults[i]["texttwo"].toString(),
+        memoriestype: memoriesdbResults[i]["type"].toString(),
+        memoriessubtype: memoriesdbResults[i]["subtype"].toString(),
+        memoriesprovider: memoriesdbResults[i]["provider"].toString(),
+        memoriesdate: memoriesdbResults[i]["date"].toString(),
+        memoriesargone: memoriesdbResults[i]["rawone"],
+        memoriesargtwo: memoriesdbResults[i]["rawtwo"],
+        memoriesargthree: memoriesdbResults[i]["rawthree"],
+        memoriesargfour: memoriesdbResults[i]["rawfour"],
+        memoriesweight: memoriesdbResults[i]["weight"]));
     memories.add(i);
-/*     print(
-        "${results.elementAt(i).memoriesid}, ${results.elementAt(i).memoriestype}"); */
   }
 }
 
@@ -340,45 +315,22 @@ Future contingencyDecision(index) async {
 //This is for manual intervention and testing
 Future pullSingleMemoriesData(int id) async {
   final db = await VibranceDatabase.instance.database;
-
-  var typeBuffer = await db.query("Memories", columns: ["type"]);
-  var type = typeBuffer[id - 1]["type"].toString();
-
-  var subtypeBuffer = await db.query("Memories", columns: ["subtype"]);
-  var subtype = subtypeBuffer[id - 1]["subtype"].toString();
-
-  var providerBuffer = await db.query("Memories", columns: ["provider"]);
-  var provider = providerBuffer[id - 1]["provider"].toString();
-
-  var textoneBuffer = await db.query("Memories", columns: ["textone"]);
-  var textone = textoneBuffer[id - 1]["textone"].toString();
-
-  var texttwoBuffer = await db.query("Memories", columns: ["textwwo"]);
-  var texttwo = texttwoBuffer[id - 1]["texttwo"].toString();
-  var argoneBuffer = await db.query("Memories", columns: ["rawone"]);
-  var argone = argoneBuffer[id - 1]["rawone"];
-
-  var argtwoBuffer = await db.query("Memories", columns: ["rawtwo"]);
-  var argtwo = argtwoBuffer[id - 1]["rawtwo"];
-
-  var argthreeBuffer = await db.query("Memories", columns: ["rawthree"]);
-  var argthree = argthreeBuffer[id - 1]["rawthree"];
-
-  var weightBuffer = await db.query("Memories", columns: ["weight"]);
-  var weight = weightBuffer[id - 1]["weight"];
-
+  var memoriesdbResults = await db.query("Memories");
+  id = id - 1;
   results.add(MemoriesData(
       memoriesid: id,
-      memoriestextone: textone,
-      memoriestexttwo: texttwo,
-      memoriestype: type,
-      memoriessubtype: subtype,
-      memoriesprovider: provider,
-      memoriesweight: weight,
-      memoriesargone: argone,
-      memoriesargtwo: argtwo,
-      memoriesargthree: argthree));
-  memories.add(id - 1);
+      memoriestextone: memoriesdbResults[id]["textone"].toString(),
+      memoriestexttwo: memoriesdbResults[id]["texttwo"].toString(),
+      memoriestype: memoriesdbResults[id]["type"].toString(),
+      memoriessubtype: memoriesdbResults[id]["subtype"].toString(),
+      memoriesprovider: memoriesdbResults[id]["provider"].toString(),
+      memoriesdate: memoriesdbResults[id]["date"].toString(),
+      memoriesargone: memoriesdbResults[id]["rawone"],
+      memoriesargtwo: memoriesdbResults[id]["rawtwo"],
+      memoriesargthree: memoriesdbResults[id]["rawthree"],
+      memoriesargfour: memoriesdbResults[id]["rawfour"],
+      memoriesweight: memoriesdbResults[id]["weight"]));
+  memories.add(id);
   print(
       "${results.elementAt(id - 1).memoriesid}, ${results.elementAt(id - 1).memoriestype}");
 }

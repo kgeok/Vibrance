@@ -1823,6 +1823,7 @@ Future manageMemories(BuildContext context) async {
                                         onPressed: () {
                                           VibranceDatabase.instance
                                               .updateWeight(index + 1, 3);
+                                          Navigator.of(context).pop();
                                         },
                                         child: Text('Prioritize Memory',
                                             style: dialogBody),
@@ -2301,13 +2302,13 @@ Future invokeSpotify(BuildContext context) async {
   }
 }
 
-Future openResult(BuildContext context) async {
+Future openResult(BuildContext context, mood) async {
   memories.clear();
   results.clear();
   currentDate = DateTime.now();
   dayCounter++;
   //print("Mood: $currentMood");
-  await makeDecisions(context);
+  await makeDecisions(context, mood);
   if (journalentries == true) {
     journal.add(dayCounter - 1);
   }
@@ -2972,7 +2973,7 @@ class HomePageState extends State<HomePage> {
                                 setState(() {
                                   isLoading = true;
                                 });
-                                await openResult(context);
+                                await openResult(context, currentMood);
                                 //Future.delayed(const Duration(seconds: 3), () {
                                 setState(() {
                                   isLoading = false;

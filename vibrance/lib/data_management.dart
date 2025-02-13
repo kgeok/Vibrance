@@ -12,11 +12,7 @@ They will also be loaded into DB on init */
 var pathBuffer = "";
 
 String colorToString(Color color) {
-  var colorBuffer = color.toString();
-  colorBuffer = colorBuffer.replaceAll("Color(", "");
-  colorBuffer = colorBuffer.replaceAll(")", "");
-
-  return colorBuffer;
+  return ("0x${color.value.toRadixString(16)}");
 }
 
 class VibranceDatabase {
@@ -111,62 +107,95 @@ class VibranceDatabase {
       //Load User Data
       var counterBuffer = await db.query("Days", columns: ["MAX(id)"]);
       var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
-
-      var coloroneBuffer = await db.query("Days", columns: ["colorone"]);
-      var colortwoBuffer = await db.query("Days", columns: ["colortwo"]);
-      var colorthreeBuffer = await db.query("Days", columns: ["colorthree"]);
-      var colorfourBuffer = await db.query("Days", columns: ["colorfour"]);
-      var colorfiveBuffer = await db.query("Days", columns: ["colorfive"]);
-      var colorsixBuffer = await db.query("Days", columns: ["colorsix"]);
-      var dateBuffer = await db.query("Days", columns: ["date"]);
-      var noteBuffer = await db.query("Days", columns: ["notes"]);
-      var moodBuffer = await db.query("Days", columns: ["mood"]);
+      var daysdbResults = await db.query("Days");
 
       counter ??= 0;
       dayCounter = counter;
 
-/*       This part is the star of the show, we are parsing everything from the Days DB
-      Then by counter we are attempting, one by one to place everything on the map */
-      for (var i = 0; i <= counter - 1; i++) {
-        var colorone =
-            Color(int.parse(coloroneBuffer[i]["colorone"].toString()));
+/*    This part is the star of the show, we are parsing everything from the Days DB
+      Then by counter we are attempting, one by one to place everything in the journal */
 
-        var colortwo =
-            Color(int.parse(colortwoBuffer[i]["colortwo"].toString()));
+      for (var i = 0; i <= dayCounter - 1; i++) {
+        if (!(daysdbResults[i]["colorone"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colorone = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        var colorthree =
-            Color(int.parse(colorthreeBuffer[i]["colorthree"].toString()));
+        if (!(daysdbResults[i]["colortwo"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colortwo = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        var colorfour =
-            Color(int.parse(colorfourBuffer[i]["colorfour"].toString()));
+        if (!(daysdbResults[i]["colorthree"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colorthree = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        var colorfive =
-            Color(int.parse(colorfiveBuffer[i]["colorfive"].toString()));
+        if (!(daysdbResults[i]["colorfour"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colorfour = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        var colorsix =
-            Color(int.parse(colorsixBuffer[i]["colorsix"].toString()));
+        if (!(daysdbResults[i]["colorfive"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colorfive = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        //Parse the Day's date
+        if (!(daysdbResults[i]["colorsix"].toString()).startsWith("0xff")) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate('''UPDATE Days SET colorsix = ? WHERE id = ?''',
+              ['0xff000000', i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
-        var date = dateBuffer[i]["date"].toString();
-
-        //Parse the Day's note
-
-        var note = noteBuffer[i]["notes"].toString();
-
-        var mood = double.parse(moodBuffer[i]["mood"].toString());
+        if (double.tryParse(daysdbResults[i]["mood"].toString()) == null) {
+          print("Error With Pin: ${i + 1}");
+          print(
+              "We're going to need to fix it otherwise we will run into issues...");
+          await db.rawUpdate(
+              '''UPDATE Days SET mood = ? WHERE id = ?''', [0, i + 1]);
+          daysdbResults = await db.query("Days");
+        }
 
         days.add(DayData(
           dayid: i,
-          daydate: date,
-          daynote: note,
-          daycolorone: colorone,
-          daycolortwo: colortwo,
-          daycolorthree: colorthree,
-          daycolorfour: colorfour,
-          daycolorfive: colorfive,
-          daycolorsix: colorsix,
-          daymood: mood,
+          daydate: daysdbResults[i]["date"].toString(),
+          daynote: daysdbResults[i]["notes"].toString(),
+          daycolorone:
+              Color(int.parse(daysdbResults[i]["colorone"].toString())),
+          daycolortwo:
+              Color(int.parse(daysdbResults[i]["colortwo"].toString())),
+          daycolorthree:
+              Color(int.parse(daysdbResults[i]["colorthree"].toString())),
+          daycolorfour:
+              Color(int.parse(daysdbResults[i]["colorfour"].toString())),
+          daycolorfive:
+              Color(int.parse(daysdbResults[i]["colorfive"].toString())),
+          daycolorsix:
+              Color(int.parse(daysdbResults[i]["colorsix"].toString())),
+          daymood: double.parse((daysdbResults[i]["mood"] ?? 0).toString()),
           daytextone: "",
         ));
       }
