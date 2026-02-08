@@ -7,7 +7,7 @@ import 'package:vibrance/theme/custom_theme.dart';
 
 var buttonaction1 = "";
 var buttonaction2 = "";
-var dialogColor;
+Color? dialogColor;
 
 var dialogHeader =
     GoogleFonts.newsCycle(fontWeight: FontWeight.w700, color: Colors.white);
@@ -100,8 +100,8 @@ void complexDialog(BuildContext context, var header, var body1, var body2,
       buttonaction2 = "OK";
       dialogColor =
           MediaQuery.of(context).platformBrightness == Brightness.light
-              ? lightMode.withOpacity(0.8)
-              : darkMode.withOpacity(0.8);
+              ? lightMode.withValues(alpha: 0.8)
+              : darkMode.withValues(alpha: 0.8);
       break;
 
     default:
@@ -109,8 +109,8 @@ void complexDialog(BuildContext context, var header, var body1, var body2,
       buttonaction2 = "OK";
       dialogColor =
           MediaQuery.of(context).platformBrightness == Brightness.light
-              ? lightMode.withOpacity(0.8)
-              : darkMode.withOpacity(0.8);
+              ? lightMode.withValues(alpha: 0.8)
+              : darkMode.withValues(alpha: 0.8);
       break;
   }
   showDialog(
@@ -162,8 +162,8 @@ void onboardDialog(BuildContext context) {
       return Container(
           constraints: const BoxConstraints(maxWidth: 500),
           color: MediaQuery.of(context).platformBrightness == Brightness.light
-              ? lightMode.withOpacity(1)
-              : darkMode.withOpacity(1),
+              ? lightMode.withValues(alpha: 1)
+              : darkMode.withValues(alpha: 1),
           child: FractionallySizedBox(
               // heightFactor: 0.6,
               child: SingleChildScrollView(
@@ -235,8 +235,8 @@ void onboardDialog(BuildContext context) {
                       backgroundColor: WidgetStatePropertyAll<Color>(
                         MediaQuery.of(context).platformBrightness ==
                                 Brightness.light
-                            ? darkMode.withOpacity(1)
-                            : lightMode.withOpacity(1),
+                            ? darkMode.withValues(alpha: 1)
+                            : lightMode.withValues(alpha: 1),
                       ),
                       enableFeedback: true),
                   onPressed: () {
@@ -303,8 +303,8 @@ void helpDialog(BuildContext context) {
       return AlertDialog(
           backgroundColor:
               MediaQuery.of(context).platformBrightness == Brightness.light
-                  ? lightMode.withOpacity(1)
-                  : darkMode.withOpacity(1),
+                  ? lightMode.withValues(alpha: 1)
+                  : darkMode.withValues(alpha: 1),
           title: Text("Quick Start", style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(

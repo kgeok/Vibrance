@@ -30,9 +30,9 @@ var quotes = {
   "Buddha": "The mind is everything. What you think you become.",
   "Henry David Thoreau":
       "Go confidently in the direction of your dreams.  Live the life you have imagined.",
-  "Confucius": "Wherever you go, go with all your heart.",
   "André Gide": "Be faithful to that which exists within yourself.",
   "Meghan Markle": "You are enough just as you are.",
+  "Confucius": "Wherever you go, go with all your heart.",
   "T.S. Eliot": "Every moment is a fresh beginning.",
   "Mac Miller": "No matter where life takes me, find me with a smile.",
   "Oprah Winfrey": "Turn your wounds into wisdom.",

@@ -77,10 +77,10 @@ Future makeDecisions(BuildContext context, mood) async {
             if (sorting == true) {
               if (buffer[i].memoriesweight > 1.1) {
                 VibranceDatabase.instance.updateWeight(
-                    buffer[i].memoriesid, buffer[i].memoriesweight - 1);
+                    buffer[i].memoriesid, buffer[i].memoriesweight - 1.0);
               } else {
                 VibranceDatabase.instance.updateWeight(
-                    buffer[i].memoriesid, buffer[i].memoriesweight + 1);
+                    buffer[i].memoriesid, buffer[i].memoriesweight + 1.0);
               }
             }
           }
@@ -118,10 +118,10 @@ Future makeDecisions(BuildContext context, mood) async {
           if (sorting == true) {
             if (buffer[i].memoriesweight > 1.1) {
               VibranceDatabase.instance.updateWeight(
-                  buffer[i].memoriesid, buffer[i].memoriesweight - 1);
+                  buffer[i].memoriesid, buffer[i].memoriesweight - 1.0);
             } else {
               VibranceDatabase.instance.updateWeight(
-                  buffer[i].memoriesid, buffer[i].memoriesweight + 1);
+                  buffer[i].memoriesid, buffer[i].memoriesweight + 1.0);
             }
           }
         }
@@ -143,10 +143,10 @@ Future makeDecisions(BuildContext context, mood) async {
         if (sorting == true) {
           if (buffer[i].memoriesweight > 1.1) {
             VibranceDatabase.instance.updateWeight(
-                buffer[i].memoriesid, buffer[i].memoriesweight - 1);
+                buffer[i].memoriesid, buffer[i].memoriesweight - 1.0);
           } else {
             VibranceDatabase.instance.updateWeight(
-                buffer[i].memoriesid, buffer[i].memoriesweight + 1);
+                buffer[i].memoriesid, buffer[i].memoriesweight + 1.0);
           }
         }
         break;
@@ -292,7 +292,7 @@ Future pullAllMemoriesData() async {
   }
 }
 
-Future contingencyDecision(index) async {
+Future contingencyDecision(int index) async {
 //Using this in case we need to replace a memory with something safer
   if (buffer.isNotEmpty) {
     for (int i = 0; i < buffer.length; i++) {

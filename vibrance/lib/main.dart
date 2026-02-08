@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors, unused_import, prefer_interpolation_to_compose_strings, unused_local_variable
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:async';
@@ -47,25 +48,26 @@ class MainPage extends StatefulWidget {
 GlobalKey<MyAppState> key = GlobalKey();
 const sku = "Vibrance";
 const version = "1.0";
-const release = "Pre-Release, Concept D";
+const release = "Pre-Release, Concept E";
 const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
 const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
 double currentMood = 1;
-var currentTheme; //Light or Dark theme
+bool animations = true;
+//var currentTheme; //Light or Dark theme
 int onboarding = 0;
 var days = [];
 var results = [];
 var services = [];
 List<int> journal = [];
 List<int> memories = [];
-var spotifyApp;
+dynamic spotifyApp;
 final record = AudioRecorder();
 final photo = ImagePicker();
 final event = Calendar();
 final client = http.Client();
 var deviceCalendarPlugin = DeviceCalendarPlugin();
-var allCalendars;
-var allCalendarsBuffer;
+Result? allCalendars;
+List allCalendarsBuffer = [];
 bool isRecording = false;
 DateTime currentDate = DateTime.now();
 String date = currentDate.toString().substring(0, 10);
@@ -74,23 +76,22 @@ var pageIndex = 0;
 var note = "";
 String noteBuffer = "";
 String textBuffer = "";
-var text;
+String text = "";
 Color defaultcolor = Color(0xFF752983);
-var backgroundcolor;
+Color? backgroundcolor;
 var buttoncolor = Color(0xFF65496A);
 
 //For testing only
 bool journalentries = true;
 String filter = "";
 bool sorting = true; //Using this switch in case we need to disable for debug
-bool enableCalendars2023OS = true; //Remove before Prod
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
 class DayData {
   int dayid = 0;
-  late var daydate;
+  late String daydate;
   late double daymood = 0;
   late String daynote = "";
   late String daytextone = "";
@@ -119,27 +120,27 @@ class DayData {
 class MemoriesData {
 //We're going to be using this as a foundation to structure our content data
 //Memory arguments for any special data that the content has
-  var memoriesid;
-  late var memoriestype;
-  late var memoriessubtype;
-  late var memoriesprovider;
-  late var memoriesdate;
-  late var memoriestextone;
-  late var memoriestexttwo;
-  late var memoriesargone;
-  late var memoriesargtwo;
-  late var memoriesargthree;
-  late var memoriesargfour;
-  late var memoriesweight;
+  late dynamic memoriesid;
+  late String memoriestype;
+  late String memoriessubtype;
+  late String memoriesprovider;
+  late String memoriesdate;
+  late String memoriestextone;
+  late String memoriestexttwo;
+  late dynamic memoriesargone;
+  late dynamic memoriesargtwo;
+  late dynamic memoriesargthree;
+  late dynamic memoriesargfour;
+  late double memoriesweight;
 
   MemoriesData(
-      {this.memoriesid,
+      {required this.memoriesid,
       required this.memoriestype,
       required this.memoriessubtype,
       required this.memoriesprovider,
-      this.memoriesdate,
-      this.memoriestextone,
-      this.memoriestexttwo,
+      this.memoriesdate = "",
+      this.memoriestextone = "",
+      this.memoriestexttwo = "",
       this.memoriesargone,
       this.memoriesargtwo,
       this.memoriesargthree,
@@ -148,13 +149,13 @@ class MemoriesData {
 }
 
 class ServiceData {
-  var serviceid;
-  late var servicename;
-  late var dataone;
-  late var datatwo;
-  late var datathree;
-  late var datafour;
-  late var datafive;
+  int serviceid;
+  late String servicename;
+  late dynamic dataone;
+  late dynamic datatwo;
+  late dynamic datathree;
+  late dynamic datafour;
+  late dynamic datafive;
 
   ServiceData(this.serviceid, this.servicename, this.dataone, this.datatwo,
       this.datathree, this.datafour, this.datafive);
@@ -175,6 +176,191 @@ const memoriesColors = {
   "Test": 0xFF0AA000,
   "Default": 0xFF000000
 };
+
+class TriangleData {
+  Offset position;
+  double size;
+  Color color;
+  double speed;
+  double directionAngle;
+  double rotationAngle;
+  double rotationSpeed;
+
+  TriangleData({
+    required this.position,
+    required this.size,
+    required this.color,
+    required this.speed,
+    required this.directionAngle,
+    required this.rotationAngle,
+    required this.rotationSpeed,
+  });
+
+  void update(Size canvasSize) {
+    position = position.translate(
+      speed * math.cos(directionAngle),
+      speed * math.sin(directionAngle),
+    );
+
+    rotationAngle += rotationSpeed;
+    if (rotationAngle > 2 * math.pi) rotationAngle -= 2 * math.pi;
+    if (rotationAngle < 0) rotationAngle += 2 * math.pi;
+
+    if (position.dx > canvasSize.width) position = Offset(0, position.dy);
+    if (position.dx < 0) position = Offset(canvasSize.width, position.dy);
+    if (position.dy > canvasSize.height) position = Offset(position.dx, 0);
+    if (position.dy < 0) position = Offset(position.dx, canvasSize.height);
+  }
+}
+
+class TriangleBackgroundPainter extends CustomPainter {
+  final List<TriangleData> triangles;
+  TriangleBackgroundPainter(this.triangles);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var triangle in triangles) {
+      final paint = Paint()
+        ..color = triangle.color.withValues(alpha: 0.2)
+        ..style = PaintingStyle.fill;
+
+      final path = Path();
+      final halfSize = triangle.size / 2;
+
+      // Point 1 (Top)
+      path.moveTo(0, -triangle.size);
+      // Point 2 (Bottom Right)
+      path.lineTo(
+        triangle.size * math.cos(math.pi / 6),
+        triangle.size * math.sin(math.pi / 6),
+      );
+      // Point 3 (Bottom Left)
+      path.lineTo(
+        -triangle.size * math.cos(math.pi / 6),
+        triangle.size * math.sin(math.pi / 6),
+      );
+      path.close();
+
+      canvas.save();
+
+      canvas.translate(triangle.position.dx, triangle.position.dy);
+      canvas.rotate(triangle.rotationAngle);
+      canvas.drawPath(path, paint);
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant TriangleBackgroundPainter oldDelegate) {
+    return oldDelegate.triangles != triangles;
+  }
+}
+
+class FloatingTrianglesBackground extends StatefulWidget {
+  final int numberOfTriangles;
+  final List<Color> colors;
+
+  const FloatingTrianglesBackground({
+    this.numberOfTriangles = 30,
+    this.colors = const [
+      //Color(0xFF80DEEA),
+      Color(0xFFE1BEE7),
+      Color(0xFF752983),
+      Color(0xFF6E2B71),
+      Color(0xFF36093D)
+    ],
+    super.key,
+  });
+
+  @override
+  _FloatingTrianglesBackgroundState createState() =>
+      _FloatingTrianglesBackgroundState();
+}
+
+class _FloatingTrianglesBackgroundState
+    extends State<FloatingTrianglesBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<TriangleData> _triangles;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+
+    _controller.addListener(() {
+      setState(() {
+        // Triggers repaint and position update in build/LayoutBuilder
+      });
+    });
+
+    _triangles = [];
+  }
+
+  void _initializeTriangles(Size size) {
+    if (_triangles.isNotEmpty) return;
+    final random = math.Random();
+
+    for (int i = 0; i < widget.numberOfTriangles; i++) {
+      _triangles.add(
+        TriangleData(
+          position: Offset(
+            random.nextDouble() * size.width,
+            random.nextDouble() * size.height,
+          ),
+          size: random.nextDouble() * 15 + 10,
+          color: widget.colors[random.nextInt(widget.colors.length)],
+          speed: random.nextDouble() * 0.5 + 0.1, // Movement speed
+          directionAngle:
+              random.nextDouble() * 2 * math.pi, // Random movement direction
+          rotationAngle:
+              random.nextDouble() * 2 * math.pi, // Random initial orientation
+          rotationSpeed: (random.nextDouble() * 0.005) *
+              (random.nextBool()
+                  ? 1
+                  : -1), // Very slow rotation, random direction
+        ),
+      );
+    }
+  }
+
+  void _updateTrianglePositions(Size size) {
+    // We only update positions if the controller is running/animating
+    if (_controller.isAnimating) {
+      for (var triangle in _triangles) {
+        triangle.update(size);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        _initializeTriangles(size);
+        _updateTrianglePositions(size);
+
+        return CustomPaint(
+          size: size,
+          painter: TriangleBackgroundPainter(_triangles),
+          // We don't need a child here as it's just the background visual
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
 
 Color darkenColor(Color color) {
   final darkvariant = HSLColor.fromColor(color).withLightness(
@@ -242,7 +428,7 @@ Future beginRecording(BuildContext context) async {
     Navigator.of(context).pop();
     //print(e);
     simpleDialog(context, "Unable to Start/Save Recording", "Error: $e",
-        "Check your Settings and try again", "error");
+        "Check Your Settings And Try Again", "error");
   }
 }
 
@@ -383,7 +569,7 @@ Future authenticateSpotify(BuildContext context) async {
             style: dialogHeader,
           ),
           content: Text(
-            "You will need to sign into Spotify to continue.",
+            "You Will Need To Sign Into Spotify To Continue",
             style: dialogBody,
           ),
           actions: <Widget>[
@@ -679,11 +865,11 @@ Future probeLatestEvents(String name) async {
     if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
       //We have to use this function to pull the events out of the given calendar
       final startDate = DateTime.now().add(const Duration(days: -1));
-      final endDate = DateTime.now().add(const Duration(days: 2));
-      var eventparams =
+      final endDate = DateTime.now().add(const Duration(days: 3));
+      RetrieveEventsParams eventparams =
           RetrieveEventsParams(startDate: startDate, endDate: endDate);
       allCalendars = await deviceCalendarPlugin.retrieveCalendars();
-      if (allCalendars.isEmpty) {
+      if (allCalendars == null) {
         print("No Calendar Data Returned.");
         if (buffer.length == 1) {
           results.add(MemoriesData(
@@ -705,7 +891,7 @@ Future probeLatestEvents(String name) async {
       //Since it's not so easy to just pull the Memories using IndexOf or something else, we have to just traverse the array and match it to the given calendar
       for (int i = 0; i < (allCalendarsBuffer.length); i++) {
         if (allCalendarsBuffer[i].name == name) {
-          var events = await deviceCalendarPlugin.retrieveEvents(
+          Result events = await deviceCalendarPlugin.retrieveEvents(
               allCalendarsBuffer[i].id, eventparams);
           var eventsBuffer = events.data;
 
@@ -737,7 +923,7 @@ Future probeLatestEvents(String name) async {
       if ((await deviceCalendarPlugin.hasPermissions()).data == true) {
         await probeLatestEvents(name);
       } else {
-        print("Unable to retrieve event");
+        //print("Unable to retrieve event");
         if (buffer.length == 1) {
           results.add(MemoriesData(
             memoriesid: 1,
@@ -755,7 +941,8 @@ Future probeLatestEvents(String name) async {
       }
     }
   } catch (e) {
-    print("An Error occurred getting Calendar events.");
+    //print("An Error occurred getting Calendar events.");
+    print(e);
     if (buffer.length == 1) {
       results.add(MemoriesData(
         memoriesid: 1,
@@ -777,7 +964,6 @@ void populateFromState() async {
   await Future.delayed(const Duration(
       milliseconds:
           1500)); //It apparently takes 1 second or so for DB to populate State
-
   int counterBuffer =
       dayCounter; //I need to freeze the state of the counter so that it doesn't keep iterating on append
   for (int i = 0; i < counterBuffer; i++) {
@@ -807,18 +993,46 @@ Widget memoriesEntry(
     var argthree,
     var argfour) {
   double cardwidth() {
-    if (MediaQuery.of(context).size.width < 500) {
-      return (MediaQuery.of(context).size.width / 2) - 10;
+    if (MediaQuery.of(context).size.width > 1000) {
+      return 500;
+      //return (MediaQuery.of(context).size.width) - 500;
+    } else if (MediaQuery.of(context).size.width < 500) {
+      return (MediaQuery.of(context).size.width) - 30;
     } else {
       return 200;
     }
   }
 
   double cardheight() {
-    if (MediaQuery.of(context).size.height < 500) {
-      return (MediaQuery.of(context).size.height / 2) - 30;
+    if (MediaQuery.of(context).size.height > 1000) {
+      return 500;
+      //return (MediaQuery.of(context).size.width) - 500;
+    } else if (MediaQuery.of(context).size.height < 500) {
+      return (MediaQuery.of(context).size.height / 2) + 30;
     } else {
-      return 180;
+      return 400;
+    }
+  }
+
+  double cardFont1() {
+    if (MediaQuery.of(context).size.height > 1000) {
+      return 36;
+      //return (MediaQuery.of(context).size.width) - 500;
+    } else if (MediaQuery.of(context).size.height < 500) {
+      return 28;
+    } else {
+      return 20;
+    }
+  }
+
+  double cardFont2() {
+    if (MediaQuery.of(context).size.height > 1000) {
+      return 22;
+      //return (MediaQuery.of(context).size.width) - 500;
+    } else if (MediaQuery.of(context).size.height < 500) {
+      return 18;
+    } else {
+      return 14;
     }
   }
 
@@ -843,7 +1057,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -872,7 +1086,7 @@ Widget memoriesEntry(
                                         const EdgeInsets.fromLTRB(0, 10, 0, 10),
                                     width: 500,
                                     decoration: ShapeDecoration(
-                                        color: Color(0x33EEEEEE),
+                                        color: Color(0x662F2F2F),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.only(
                                                 bottomLeft: Radius.circular(25),
@@ -890,7 +1104,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 18)),
+                                              fontSize: cardFont1())),
                                       Text(texttwo,
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
@@ -902,7 +1116,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 14))
+                                              fontSize: cardFont2()))
                                     ])),
                               ]))))));
 
@@ -926,7 +1140,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -954,7 +1168,7 @@ Widget memoriesEntry(
                                         const EdgeInsets.fromLTRB(0, 10, 0, 10),
                                     width: 500,
                                     decoration: ShapeDecoration(
-                                        color: Color(0x33EEEEEE),
+                                        color: Color(0x332F2F2F),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.only(
                                                 bottomLeft: Radius.circular(25),
@@ -972,7 +1186,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 18)),
+                                              fontSize: cardFont1())),
                                       Text(texttwo,
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
@@ -984,7 +1198,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 14))
+                                              fontSize: cardFont2()))
                                     ])),
                               ]))))));
 
@@ -1007,7 +1221,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -1031,7 +1245,7 @@ Widget memoriesEntry(
                                         const EdgeInsets.fromLTRB(0, 10, 0, 10),
                                     width: 500,
                                     decoration: ShapeDecoration(
-                                        color: Color(0x33EEEEEE),
+                                        color: Color(0x332F2F2F),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.only(
                                                 bottomLeft: Radius.circular(25),
@@ -1049,7 +1263,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 18)),
+                                              fontSize: cardFont1())),
                                       Text(argone.toString(),
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
@@ -1061,7 +1275,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 14))
+                                              fontSize: cardFont2()))
                                     ])),
                               ]))))));
 
@@ -1085,7 +1299,7 @@ Widget memoriesEntry(
                 decoration: ShapeDecoration(
                     shadows: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.125),
+                        color: Colors.black.withValues(alpha: 0.125),
                         spreadRadius: 5,
                         blurRadius: 7,
                         offset:
@@ -1120,7 +1334,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -1144,7 +1358,7 @@ Widget memoriesEntry(
                                         const EdgeInsets.fromLTRB(0, 10, 0, 10),
                                     width: 500,
                                     decoration: ShapeDecoration(
-                                        color: Color(0x33EEEEEE),
+                                        color: Color(0x332F2F2F),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.only(
                                                 bottomLeft: Radius.circular(25),
@@ -1162,7 +1376,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 18)),
+                                              fontSize: cardFont1())),
                                       Text("Voice Note",
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
@@ -1174,7 +1388,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 14))
+                                              fontSize: cardFont2()))
                                     ])),
                               ]))))));
 
@@ -1197,7 +1411,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -1225,7 +1439,7 @@ Widget memoriesEntry(
                                             typecolor.computeLuminance() > 0.5
                                                 ? Colors.black
                                                 : Colors.white,
-                                        fontSize: 22)),
+                                        fontSize: cardFont1())),
                               ]))))));
 
     case "Tips":
@@ -1247,7 +1461,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -1275,7 +1489,7 @@ Widget memoriesEntry(
                                             typecolor.computeLuminance() > 0.5
                                                 ? Colors.black
                                                 : Colors.white,
-                                        fontSize: 16)),
+                                        fontSize: cardFont1())),
                               ]))))));
 
     case "Test":
@@ -1297,7 +1511,7 @@ Widget memoriesEntry(
                   decoration: ShapeDecoration(
                       shadows: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.125),
+                          color: Colors.black.withValues(alpha: 0.125),
                           spreadRadius: 5,
                           blurRadius: 7,
                           offset:
@@ -1321,7 +1535,7 @@ Widget memoriesEntry(
                                         const EdgeInsets.fromLTRB(0, 10, 0, 10),
                                     width: 500,
                                     decoration: ShapeDecoration(
-                                        color: Color(0x33EEEEEE),
+                                        color: Color(0x332F2F2F),
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.only(
                                                 bottomLeft: Radius.circular(25),
@@ -1339,7 +1553,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 18)),
+                                              fontSize: cardFont1())),
                                       Text(texttwo,
                                           textAlign: TextAlign.center,
                                           overflow: TextOverflow.fade,
@@ -1351,7 +1565,7 @@ Widget memoriesEntry(
                                                           0.5
                                                       ? Colors.black
                                                       : Colors.white,
-                                              fontSize: 14))
+                                              fontSize: cardFont2()))
                                     ])),
                               ]))))));
 
@@ -1398,7 +1612,7 @@ Widget memoriesEntry(
                                 color: typecolor.computeLuminance() > 0.5
                                     ? Colors.black
                                     : Colors.white,
-                                fontSize: 18))
+                                fontSize: cardFont1()))
                       ])))));
   }
 }
@@ -1750,9 +1964,9 @@ void clearDaysWarning(BuildContext context) {
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Are you sure you want to clear Journal?",
+                Text("Are You Sure You Want To Clear Journal?",
                     style: dialogBody),
-                Text("(This action cannot be reversed)", style: dialogBody),
+                Text("This Action Cannot Be Reversed", style: dialogBody),
               ],
             ),
           ),
@@ -1837,15 +2051,14 @@ Future manageMemories(BuildContext context) async {
                                               return AlertDialog(
                                                   backgroundColor:
                                                       Colors.orange[800],
-                                                  title: Text(
-                                                      "Delete this Memory?",
+                                                  title: Text("Delete Memory?",
                                                       style: dialogHeader),
                                                   content:
                                                       SingleChildScrollView(
                                                     child: ListBody(
                                                       children: <Widget>[
                                                         Text(
-                                                            "Are you sure you want to delete this memory?",
+                                                            "Are You Sure You Want To Delete This Memory?",
                                                             style: dialogBody),
                                                       ],
                                                     ),
@@ -1927,9 +2140,9 @@ Future manageMemories(BuildContext context) async {
                               child: ListBody(
                                 children: <Widget>[
                                   Text(
-                                      "Are you sure you want to clear Memories?",
+                                      "Are You Sure You Want To Clear Memories?",
                                       style: dialogBody),
-                                  Text("(This action cannot be reversed)",
+                                  Text("This Action Cannot Be Reversed",
                                       style: dialogBody),
                                 ],
                               ),
@@ -1965,12 +2178,12 @@ Future manageMemories(BuildContext context) async {
         },
       );
     } else {
-      simpleDialog(context, "No Memories", "There are no Memories to manage.",
-          "Add some Memories to get started.", "info");
+      simpleDialog(context, "No Memories", "There Are No Memories To Manage",
+          "Add Some Memories To Get Started", "info");
     }
   } catch (e) {
-    simpleDialog(context, "Unable to retrieve Memories", "Try again later.", "",
-        "error");
+    simpleDialog(
+        context, "Unable To Retrieve Memories", "Try Again Later", "", "error");
   }
 }
 
@@ -2008,14 +2221,13 @@ Future manageServices(BuildContext context) async {
                                             return AlertDialog(
                                                 backgroundColor:
                                                     Colors.orange[800],
-                                                title: Text(
-                                                    "Remove this Provider?",
+                                                title: Text("Remove Provider?",
                                                     style: dialogHeader),
                                                 content: SingleChildScrollView(
                                                   child: ListBody(
                                                     children: <Widget>[
                                                       Text(
-                                                          "Are you sure you want to remove this Provider?",
+                                                          "Are You Sure You Want To Remove This Provider?",
                                                           style: dialogBody),
                                                     ],
                                                   ),
@@ -2087,8 +2299,8 @@ Future manageServices(BuildContext context) async {
       },
     );
   } else {
-    simpleDialog(context, "No Providers", "There are no Providers to manage.",
-        "Add some Memories to get started.", "info");
+    simpleDialog(context, "No Providers", "There Are No Providers To Manage",
+        "Add Some Memories To Get Started.", "info");
   }
 }
 
@@ -2098,13 +2310,13 @@ void clearServicesWarning(BuildContext context) {
     builder: (BuildContext context) {
       return AlertDialog(
           backgroundColor: Colors.orange[800],
-          title: Text("Remove all Providers?", style: dialogHeader),
+          title: Text("Remove All Providers?", style: dialogHeader),
           content: SingleChildScrollView(
             child: ListBody(
               children: <Widget>[
-                Text("Are you sure you want to remove all Providers?",
+                Text("Are You Sure You Want To Remove All Providers?",
                     style: dialogBody),
-                Text("(You will need to add them back in later.)",
+                Text("You will need to add them back in later",
                     style: dialogBody),
               ],
             ),
@@ -2344,33 +2556,37 @@ Future openResult(BuildContext context, mood) async {
                 Center(
                     child: SingleChildScrollView(
                         child: Column(children: [
-                  Wrap(
-                      direction: Axis.horizontal,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children:
-                          List<Widget>.generate(memories.length, (int index) {
-                        if (context.mounted) {
-                          if (results[index].memoriestype == null) {
-                            results[index].memoriestype = "Default";
-                          }
-                          return memoriesEntry(
-                              context,
-                              results[index].memoriesid,
-                              results[index].memoriestextone,
-                              results[index].memoriestexttwo,
-                              results[index].memoriestype,
-                              results[index].memoriessubtype,
-                              results[index].memoriesprovider,
-                              results[index].memoriesargone,
-                              results[index].memoriesargtwo,
-                              results[index].memoriesargthree,
-                              results[index].memoriesargfour);
-                        } else {
-                          return SizedBox();
-                        }
-                      })),
-                  SizedBox(height: 30),
+                  SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                          spacing: 8,
+                          children: List<Widget>.generate(memories.length,
+                              (int index) {
+                            if (context.mounted) {
+                              if (results[index].memoriestype == null) {
+                                results[index].memoriestype = "Default";
+                              }
+                              return memoriesEntry(
+                                  context,
+                                  results[index].memoriesid,
+                                  results[index].memoriestextone,
+                                  results[index].memoriestexttwo,
+                                  results[index].memoriestype,
+                                  results[index].memoriessubtype,
+                                  results[index].memoriesprovider,
+                                  results[index].memoriesargone,
+                                  results[index].memoriesargtwo,
+                                  results[index].memoriesargthree,
+                                  results[index].memoriesargfour);
+                            } else {
+                              return SizedBox();
+                            }
+                          }))),
+                  Container(
+                    color: Color(0x00ffffff),
+                    height: 30,
+                  )
                 ]))),
               ],
             )
@@ -2794,205 +3010,211 @@ class HomePageState extends State<HomePage> {
         ]),
         extendBodyBehindAppBar: true,
         body: AnimatedContainer(
-            duration: Duration(seconds: 1),
-            curve: Curves.fastOutSlowIn,
+            duration: animations ? Duration(seconds: 1) : Duration(seconds: 0),
+            curve: animations ? Curves.fastOutSlowIn : Curves.linear,
             color: backgroundcolor,
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                      child: Text("How are you\nfeeling?",
-                          style: GoogleFonts.newsCycle(
-                            color: Colors.white,
-                            fontSize: 50,
-                          ))),
-                  SizedBox(height: 10),
-                  Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 0),
-                      child: Text(generateQuote(),
-                          style: GoogleFonts.newsCycle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontStyle: FontStyle.italic,
-                          ))),
-                  SizedBox(height: 20),
-                  Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Card(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              ListTile(
-                                leading: Icon(Icons.linear_scale),
-                                title: Text("1 is lowest, 6 is highest",
+            child: Stack(children: [
+              (animations
+                  ? Positioned.fill(child: FloatingTrianglesBackground())
+                  : SizedBox()),
+              Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                        child: Text("How are you\nfeeling?",
+                            style: GoogleFonts.newsCycle(
+                              color: Colors.white,
+                              fontSize: 50,
+                            ))),
+                    SizedBox(height: 10),
+                    Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+                        child: Text(generateQuote(),
+                            style: GoogleFonts.newsCycle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                            ))),
+                    SizedBox(height: 20),
+                    Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Card(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                ListTile(
+                                  leading: Icon(Icons.linear_scale),
+                                  title: Text("1 is lowest, 6 is highest",
+                                      style: GoogleFonts.newsCycle(
+                                          color: Colors.black)),
+                                ),
+                                Text("${currentMood.toInt()}/6",
                                     style: GoogleFonts.newsCycle(
-                                        color: Colors.black)),
-                              ),
-                              Text("${currentMood.toInt()}/6",
-                                  style: GoogleFonts.newsCycle(
-                                      color: Colors.black, fontSize: 24)),
-                              Slider(
-                                  value: currentMood,
-                                  min: 1,
-                                  max: 6,
-                                  divisions: 5,
-                                  onChanged: (double value) {
-                                    setState(() {
-                                      switch (value) {
-                                        case 1:
-                                          backgroundcolor = lightMode[900];
-                                          buttoncolor =
-                                              Color.fromRGBO(110, 43, 113, 1);
-                                          break;
-                                        case 2:
-                                          backgroundcolor = lightMode[700];
-                                          buttoncolor =
-                                              Color.fromRGBO(110, 43, 113, 1);
-                                          break;
-                                        case 3:
-                                          backgroundcolor = lightMode[500];
-                                          buttoncolor =
-                                              Color.fromRGBO(110, 43, 113, 1);
-                                          break;
-                                        case 4:
-                                          backgroundcolor = lightMode[100];
-                                          buttoncolor =
-                                              Color.fromRGBO(54, 9, 61, 1);
-                                          break;
-                                        case 5:
-                                          backgroundcolor = lightMode[200];
-                                          buttoncolor =
-                                              Color.fromRGBO(54, 9, 61, 1);
-                                          break;
-                                        case 6:
-                                          backgroundcolor = lightMode[400];
-                                          buttoncolor =
-                                              Color.fromRGBO(54, 9, 61, 1);
-                                          break;
-                                      }
-                                      currentMood = value;
-                                    });
-                                  }),
-                            ],
+                                        color: Colors.black, fontSize: 24)),
+                                Slider(
+                                    value: currentMood,
+                                    min: 1,
+                                    max: 6,
+                                    divisions: 5,
+                                    onChanged: (double value) {
+                                      setState(() {
+                                        switch (value) {
+                                          case 1:
+                                            backgroundcolor = lightMode[900];
+                                            buttoncolor =
+                                                Color.fromRGBO(110, 43, 113, 1);
+                                            break;
+                                          case 2:
+                                            backgroundcolor = lightMode[700];
+                                            buttoncolor =
+                                                Color.fromRGBO(110, 43, 113, 1);
+                                            break;
+                                          case 3:
+                                            backgroundcolor = lightMode[500];
+                                            buttoncolor =
+                                                Color.fromRGBO(110, 43, 113, 1);
+                                            break;
+                                          case 4:
+                                            backgroundcolor = lightMode[100];
+                                            buttoncolor =
+                                                Color.fromRGBO(54, 9, 61, 1);
+                                            break;
+                                          case 5:
+                                            backgroundcolor = lightMode[200];
+                                            buttoncolor =
+                                                Color.fromRGBO(54, 9, 61, 1);
+                                            break;
+                                          case 6:
+                                            backgroundcolor = lightMode[400];
+                                            buttoncolor =
+                                                Color.fromRGBO(54, 9, 61, 1);
+                                            break;
+                                        }
+                                        currentMood = value;
+                                      });
+                                    }),
+                              ],
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 20),
-                        TextButton(
-                          style: ButtonStyle(
-                              minimumSize:
-                                  WidgetStatePropertyAll<Size>(Size(250, 50)),
-                              backgroundColor: WidgetStatePropertyAll<Color>(
-                                  Colors.white.withOpacity(0.8)),
-                              enableFeedback: true),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                    title:
-                                        Text('Enter Note', style: dialogHeader),
-                                    content: SingleChildScrollView(
-                                      child: ListBody(
-                                        children: <Widget>[
-                                          Text(
-                                              "You can add addtional context of how you're feeling or when this feeling occurred.",
-                                              style: dialogBody),
-                                          Text(""),
-                                          TextField(
-                                              autofocus: true,
-                                              keyboardType:
-                                                  TextInputType.multiline,
-                                              minLines: 1,
-                                              maxLines: 3,
-                                              decoration: InputDecoration(
-                                                  fillColor: Colors.grey[300],
-                                                  filled: true,
-                                                  border:
-                                                      const OutlineInputBorder(),
-                                                  hintText: "Note"),
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  noteBuffer = value;
-                                                  note = noteBuffer;
-                                                });
-                                              }),
-                                        ],
-                                      ),
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        child:
-                                            Text('Cancel', style: dialogBody),
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                      ),
-                                      TextButton(
-                                        child: Text('OK', style: dialogBody),
-                                        onPressed: () {
-                                          setState(() {
-                                            if (noteBuffer.isEmpty) {}
-
-                                            note = noteBuffer;
-                                            noteBuffer = "";
-                                            Navigator.pop(context);
-                                          });
-                                        },
-                                      )
-                                    ]);
-                              },
-                            );
-                          },
-                          child: Text(
-                            "Add Note",
-                            style: TextStyle(color: buttoncolor),
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        TextButton(
+                          SizedBox(height: 20),
+                          TextButton(
                             style: ButtonStyle(
-                                minimumSize: WidgetStatePropertyAll<Size>(
-                                    isLoading ? Size(50, 50) : Size(250, 50)),
+                                minimumSize:
+                                    WidgetStatePropertyAll<Size>(Size(250, 50)),
                                 backgroundColor: WidgetStatePropertyAll<Color>(
-                                    isLoading
-                                        ? Colors.transparent
-                                        : buttoncolor),
+                                    Colors.white.withValues(alpha: 0.8)),
                                 enableFeedback: true),
-                            onPressed: () async {
-                              //We need to make sure that we're only loading in data once, multple button presses aren't allowed.
-                              if (isLoading == false) {
-                                setState(() {
-                                  isLoading = true;
-                                });
-                                await openResult(context, currentMood);
-                                //Future.delayed(const Duration(seconds: 3), () {
-                                setState(() {
-                                  isLoading = false;
-                                });
-                              } else {
-                                null;
-                              }
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                      title: Text('Enter Note',
+                                          style: dialogHeader),
+                                      content: SingleChildScrollView(
+                                        child: ListBody(
+                                          children: <Widget>[
+                                            Text(
+                                                "You can add addtional context of how you're feeling or when this feeling occurred.",
+                                                style: dialogBody),
+                                            Text(""),
+                                            TextField(
+                                                autofocus: true,
+                                                keyboardType:
+                                                    TextInputType.multiline,
+                                                minLines: 1,
+                                                maxLines: 3,
+                                                decoration: InputDecoration(
+                                                    fillColor: Colors.grey[300],
+                                                    filled: true,
+                                                    border:
+                                                        const OutlineInputBorder(),
+                                                    hintText: "Note"),
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    noteBuffer = value;
+                                                    note = noteBuffer;
+                                                  });
+                                                }),
+                                          ],
+                                        ),
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          child:
+                                              Text('Cancel', style: dialogBody),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                        TextButton(
+                                          child: Text('OK', style: dialogBody),
+                                          onPressed: () {
+                                            setState(() {
+                                              if (noteBuffer.isEmpty) {}
+
+                                              note = noteBuffer;
+                                              noteBuffer = "";
+                                              Navigator.pop(context);
+                                            });
+                                          },
+                                        )
+                                      ]);
+                                },
+                              );
                             },
-                            child: isLoading
-                                ? CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : Icon(
-                                    Icons.check,
-                                    color: Colors.white.withOpacity(0.8),
-                                    size: 35,
-                                  ))
-                      ])
-                ])));
+                            child: Text(
+                              "Add Note",
+                              style: TextStyle(color: buttoncolor),
+                            ),
+                          ),
+                          SizedBox(height: 20),
+                          TextButton(
+                              style: ButtonStyle(
+                                  minimumSize: WidgetStatePropertyAll<Size>(
+                                      isLoading ? Size(50, 50) : Size(250, 50)),
+                                  backgroundColor:
+                                      WidgetStatePropertyAll<Color>(isLoading
+                                          ? Colors.transparent
+                                          : buttoncolor),
+                                  enableFeedback: true),
+                              onPressed: () async {
+                                //We need to make sure that we're only loading in data once, multple button presses aren't allowed.
+                                if (isLoading == false) {
+                                  setState(() {
+                                    isLoading = true;
+                                  });
+                                  await openResult(context, currentMood);
+                                  //Future.delayed(const Duration(seconds: 3), () {
+                                  setState(() {
+                                    isLoading = false;
+                                  });
+                                } else {
+                                  null;
+                                }
+                              },
+                              child: isLoading
+                                  ? CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : Icon(
+                                      Icons.check,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.8),
+                                      size: 35,
+                                    ))
+                        ])
+                  ])
+            ])));
   }
 }
 
@@ -3219,7 +3441,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                             simpleDialog(
                                 context,
                                 "Top Track Added",
-                                "Your Top Track will now be added automatically.",
+                                "Your Top Track Will Now Be Added Automatically.",
                                 "",
                                 "info");
                           },
@@ -3273,8 +3495,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                       simpleDialog(
                           context,
                           "No Connection",
-                          "Unable to Connect to Spotify",
-                          "Check your Settings and try again",
+                          "Unable To Connect To Spotify",
+                          "Check Your Settings And Try Again",
                           "error");
                     }
                   },
@@ -3353,8 +3575,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                                     simpleDialog(
                                         context,
                                         "Invalid RSS URL",
-                                        "RSS URL may be incorrect.",
-                                        "Check the URL and try again",
+                                        "RSS URL May Be Incorrect.",
+                                        "Check The URL And Try Again",
                                         "error");
                                   }
                                 },
@@ -3464,14 +3686,14 @@ class OnboardingPageState extends State<OnboardingPage> {
                             true) {
                           eventOnboarding();
                         } else {
-                          simpleDialog(context, "Unable to Retrieve Calendars",
-                              "Check your Settings and try again", "", "error");
+                          simpleDialog(context, "Unable To Retrieve Calendars",
+                              "Check Your Settings And Try Again", "", "error");
                         }
                       }
                     } catch (e) {
                       //print(e);
-                      simpleDialog(context, "Unable to Retrieve Calendars",
-                          "Check your Settings and try again", "", "error");
+                      simpleDialog(context, "Unable To Retrieve Calendars",
+                          "Check Your Settings And Try Again", "", "error");
                     }
                   },
                   child: Text('System Calendar', style: dialogBody),
@@ -3565,7 +3787,7 @@ class OnboardingPageState extends State<OnboardingPage> {
                           TextButton(
                             style: ButtonStyle(
                                 backgroundColor: WidgetStatePropertyAll<Color>(
-                                    Colors.white.withOpacity(0.8)),
+                                    Colors.white.withValues(alpha: 0.8)),
                                 enableFeedback: true),
                             onPressed: (() async {
                               if (isRecording == false) {
@@ -3644,8 +3866,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                             "");
                       }
                     } catch (e) {
-                      simpleDialog(context, "Unable to Retrieve Photos",
-                          "Check your Settings and try again", "", "error");
+                      simpleDialog(context, "Unable To Retrieve Photos",
+                          "Check Your Settings And Try Again", "", "error");
                     }
                   },
                   child: Text('System Photos', style: dialogBody),
@@ -3670,8 +3892,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                             "");
                       }
                     } catch (e) {
-                      simpleDialog(context, "Unable to Retrieve Photos",
-                          "Check your Settings and try again", "", "error");
+                      simpleDialog(context, "Unable To Retrieve Photos",
+                          "Check Your Settings And Try Again", "", "error");
                     }
                   },
                   child: Text('System Camera', style: dialogBody),
@@ -3746,8 +3968,8 @@ class OnboardingPageState extends State<OnboardingPage> {
                                         simpleDialog(
                                             context,
                                             "No Connection",
-                                            "Unable to Connect to Spotify",
-                                            "Check your Settings and try again",
+                                            "Unable To Connect To Spotify",
+                                            "Check Your Settings And Try Again",
                                             "error");
                                       }
                                     },
@@ -4576,7 +4798,7 @@ class SummaryPageState extends State<SummaryPage> {
                             enabled: true,
                             touchTooltipData: LineTouchTooltipData(
                               //tooltipBgColor: lightMode,
-                              tooltipRoundedRadius: 20.0,
+                              //tooltipRoundedRadius: 20.0,
                               showOnTopOfTheChartBoxArea: true,
                               fitInsideHorizontally: true,
                               tooltipMargin: 0,
@@ -4733,7 +4955,7 @@ class SettingsPageState extends State<SettingsPage> {
                 children: <Widget>[
                   ListTile(
                     leading: Icon(Icons.person),
-                    title: Text("With 💖 by Kevin George",
+                    title: Text("With 💝 by Kevin George",
                         style: GoogleFonts.newsCycle(color: Colors.black)),
                     subtitle: Text("http://kgeok.github.io/",
                         style: GoogleFonts.newsCycle(
@@ -4811,6 +5033,29 @@ class SettingsPageState extends State<SettingsPage> {
                   onTap: () => clearWeightWarning(context),
                 )
               ])),
+          Card(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.animation),
+                subtitle: animations ? Text("On") : Text("Off"),
+                title: Text("Animations",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                onTap: () => setState(() {
+                  animations = !animations;
+                  VibranceDatabase.instance.updatePrefsDB();
+                }),
+              ),
+/*           ListTile(
+            leading: Icon(Icons.texture_sharp),
+            title: Text("Add Test Entry",
+                style: GoogleFonts.newsCycle(color: Colors.red)),
+            onTap: () => testOnboarding(),
+          ), */
+            ],
+          )),
           Card(
               child: Column(
             mainAxisSize: MainAxisSize.min,

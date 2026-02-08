@@ -21,13 +21,12 @@ class CustomTheme {
     //1
     return ThemeData(
         //2
-        dialogTheme: DialogTheme(backgroundColor: lightMode),
+        dialogTheme: DialogThemeData(backgroundColor: lightMode),
         useMaterial3: true,
-        splashColor: darkMode.withOpacity(0.4),
+        splashColor: darkMode.withValues(alpha: 0.4),
         primarySwatch: lightMode,
         primaryColor: lightMode,
         fontFamily: 'NewsCycle',
-        dialogBackgroundColor: lightMode,
         bottomSheetTheme: BottomSheetThemeData(backgroundColor: lightMode),
         sliderTheme: const SliderThemeData(
             thumbColor: Color.fromRGBO(110, 43, 113, 1),
@@ -56,13 +55,12 @@ class CustomTheme {
 
   static ThemeData get darkTheme {
     return ThemeData(
-        dialogTheme: DialogTheme(backgroundColor: darkMode),
+        dialogTheme: DialogThemeData(backgroundColor: darkMode),
         useMaterial3: true,
-        splashColor: lightMode.withOpacity(0.4),
+        splashColor: lightMode.withValues(alpha: 0.4),
         primarySwatch: darkMode,
         primaryColor: darkMode,
         fontFamily: 'NewsCycle',
-        dialogBackgroundColor: darkMode,
         bottomSheetTheme: BottomSheetThemeData(backgroundColor: darkMode),
         sliderTheme: const SliderThemeData(
             activeTrackColor: Color.fromRGBO(110, 43, 113, 1),

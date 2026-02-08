@@ -4,7 +4,7 @@ import 'package:path/path.dart';
 import 'package:vibrance/main.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 /* These are the default value we use for settings
 These will also be the values to fall back on in case DB can't be loaded
 They will also be loaded into DB on init */
@@ -12,7 +12,7 @@ They will also be loaded into DB on init */
 var pathBuffer = "";
 
 String colorToString(Color color) {
-  return ("0x${color.value.toRadixString(16)}");
+  return ("0x${color.toHexString()}");
 }
 
 class VibranceDatabase {
@@ -49,12 +49,26 @@ class VibranceDatabase {
     db.execute(
         'CREATE TABLE Configuration (id INTEGER, service MEDIUMTEXT, dataone MEDIUMTEXT, datatwo MEDIUMTEXT, datathree MEDIUMTEXT, datafour MEDIUMTEXT, datafive MEDIUMTEXT)');
 
+    db.execute('CREATE TABLE Prefs (id INTEGER, animations BOOLEAN)');
+
+    db.rawInsert(
+        'INSERT INTO Prefs (id, animations) VALUES(?, ?)', ['1', 'TRUE']);
+
     print("DB Made!");
     onboarding = 1;
   }
 
-  Future addDayDB(id, date, mood, colorone, colortwo, colorthree, colorfour,
-      colorfive, colorsix, note) async {
+  Future addDayDB(
+      int id,
+      String date,
+      var mood,
+      Color colorone,
+      Color colortwo,
+      Color colorthree,
+      Color colorfour,
+      Color colorfive,
+      Color colorsix,
+      String note) async {
     final db = await instance.database;
 
     db.rawInsert(
@@ -69,12 +83,20 @@ class VibranceDatabase {
           colorToString(colorfour),
           colorToString(colorfive),
           colorToString(colorsix),
-          '$note'
+          note
         ]);
   }
 
-  Future updateDaysDB(id, mood, colorone, colortwo, colorthree, colorfour,
-      colorfive, colorsix, note) async {
+  Future updateDaysDB(
+      int id,
+      var mood,
+      Color colorone,
+      Color colortwo,
+      Color colorthree,
+      Color colorfour,
+      Color colorfive,
+      Color colorsix,
+      String note) async {
     final db = await instance.database;
 
     db.rawUpdate(
@@ -90,6 +112,12 @@ class VibranceDatabase {
           note,
           id
         ]);
+  }
+
+  Future updatePrefsDB() async {
+    final db = await instance.database;
+    await db.rawUpdate('''UPDATE Prefs SET animations = ? WHERE id = ?''',
+        [animations.toString(), '1']);
   }
 
   Future closeDB() async {
@@ -108,6 +136,9 @@ class VibranceDatabase {
       var counterBuffer = await db.query("Days", columns: ["MAX(id)"]);
       var counter = int.tryParse(counterBuffer[0]['MAX(id)'].toString());
       var daysdbResults = await db.query("Days");
+      var prefsdbResults = await db.query("Prefs");
+      animations = bool.parse(prefsdbResults[0]['animations'].toString(),
+          caseSensitive: false);
 
       counter ??= 0;
       dayCounter = counter;
@@ -116,8 +147,10 @@ class VibranceDatabase {
       Then by counter we are attempting, one by one to place everything in the journal */
 
       for (var i = 0; i <= dayCounter - 1; i++) {
-        if (!(daysdbResults[i]["colorone"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colorone"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colorone = ? WHERE id = ?''',
@@ -125,8 +158,10 @@ class VibranceDatabase {
           daysdbResults = await db.query("Days");
         }
 
-        if (!(daysdbResults[i]["colortwo"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colortwo"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colortwo = ? WHERE id = ?''',
@@ -134,8 +169,10 @@ class VibranceDatabase {
           daysdbResults = await db.query("Days");
         }
 
-        if (!(daysdbResults[i]["colorthree"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colorthree"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colorthree = ? WHERE id = ?''',
@@ -143,8 +180,10 @@ class VibranceDatabase {
           daysdbResults = await db.query("Days");
         }
 
-        if (!(daysdbResults[i]["colorfour"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colorfour"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colorfour = ? WHERE id = ?''',
@@ -152,8 +191,10 @@ class VibranceDatabase {
           daysdbResults = await db.query("Days");
         }
 
-        if (!(daysdbResults[i]["colorfive"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colorfive"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colorfive = ? WHERE id = ?''',
@@ -161,8 +202,10 @@ class VibranceDatabase {
           daysdbResults = await db.query("Days");
         }
 
-        if (!(daysdbResults[i]["colorsix"].toString()).startsWith("0xff")) {
-          print("Error With Pin: ${i + 1}");
+        if (!(daysdbResults[i]["colorsix"].toString())
+            .toLowerCase()
+            .startsWith("0xff")) {
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate('''UPDATE Days SET colorsix = ? WHERE id = ?''',
@@ -171,7 +214,7 @@ class VibranceDatabase {
         }
 
         if (double.tryParse(daysdbResults[i]["mood"].toString()) == null) {
-          print("Error With Pin: ${i + 1}");
+          print("Error With Entry: ${i + 1}");
           print(
               "We're going to need to fix it otherwise we will run into issues...");
           await db.rawUpdate(
@@ -204,7 +247,7 @@ class VibranceDatabase {
     }
   }
 
-  Future initDBfromState(type) async {
+  Future initDBfromState(String type) async {
     switch (type) {
       case "Days":
         clearDaysDB(); //We need to clean out the existing DB and reappend it
@@ -241,8 +284,15 @@ class VibranceDatabase {
     }
   }
 
-  Future updateMemoriesDB(var type, var subtype, var provider, var textone,
-      var texttwo, var rawone, var rawtwo, var rawthree) async {
+  Future updateMemoriesDB(
+      String type,
+      String subtype,
+      String provider,
+      String textone,
+      String texttwo,
+      var rawone,
+      var rawtwo,
+      var rawthree) async {
     final db = await instance.database;
 
     var counterBuffer = await db.query("Memories", columns: ["MAX(id)"]);
@@ -271,11 +321,11 @@ class VibranceDatabase {
         ]);
   }
 
-  Future updateWeight(id, weight) async {
+  Future updateWeight(int id, double weight) async {
     final db = await instance.database;
     print("Updating weight: $id, $weight");
-    db.rawUpdate(
-        '''UPDATE Memories SET weight = ? WHERE id = ?''', [weight, id]);
+    db.rawUpdate('''UPDATE Memories SET weight = ? WHERE id = ?''',
+        [weight.toInt(), id]);
   }
 
   Future resetWeight() async {
@@ -318,14 +368,14 @@ class VibranceDatabase {
     }
   }
 
-  Future deleteDayDB(id) async {
+  Future deleteDayDB(int id) async {
     final db = await instance.database;
     db.query("Days");
     db.execute("DELETE FROM Days WHERE id = $id");
   }
 
-  Future addService(
-      id, service, dataone, datatwo, datathree, datafour, datafive) async {
+  Future addService(int id, service, var dataone, var datatwo, var datathree,
+      var datafour, var datafive) async {
     final db = await instance.database;
     db.rawInsert(
         'INSERT INTO Configuration (id, service, dataone, datatwo, datathree, datafour, datafive) VALUES(?, ?, ?, ?, ?, ?, ?)',
@@ -340,7 +390,7 @@ class VibranceDatabase {
         ]);
   }
 
-  Future deleteMemoriesDB(id) async {
+  Future deleteMemoriesDB(int id) async {
     final db = await instance.database;
     db.query("Memories");
     db.execute("DELETE FROM Memories WHERE id = $id");

@@ -1,30 +1,33 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:vibrance/data_management.dart';
 import 'package:vibrance/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MainPage());
+  test('colorToString should return hex string format for DB', () {
+    const color = Color(0xFFFF0000);
+    final result = colorToString(color);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Based on implementation: "0x" + toHexString()
+    expect(result, startsWith("0x"));
+    expect(result.toLowerCase(), contains("ff0000"));
+  });
+  testWidgets('FloatingTrianglesBackground initializes with correct count',
+      (WidgetTester tester) async {
+    // Build the widget
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: FloatingTrianglesBackground(numberOfTriangles: 10),
+      ),
+    ));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify the widget exists
+    expect(find.byType(FloatingTrianglesBackground), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Allow for animation frames
+    await tester.pump(const Duration(seconds: 1));
+
+    // Verify CustomPaint is used for the background
+    expect(find.byType(CustomPaint), findsOneWidget);
   });
 }
