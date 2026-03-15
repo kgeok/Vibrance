@@ -1,0 +1,113 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale = 1.0, user-scalable = no" />
+<link href="https://fonts.googleapis.com/css2?family=News+Cycle&display=swap" rel="stylesheet">
+<script src="https://js-cdn.music.apple.com/musickit/v1/musickit.js"></script>
+
+<meta name="apple-music-developer-token"
+    content="eyJhbGciOiJFUzI1NiIsImtpZCI6IjlDNUM1MlpXTlQifQ.eyJpc3MiOiJDUFJaOTQzODlIIiwiaWF0IjoxNzczNjI0MDE0LCJleHAiOjE3NzM2MjQwMTR9.Ublq7Ug--ZUvRa6111ZzsmgNtJth2VuXo-sDdqq7LeRHRYUG5clsKEuEUeJH3F9R4sjWJ9BYmsFMiwOzbT6ZzQ">
+<meta name="apple-music-app-name" content="Vibrance">
+<meta name="apple-music-app-build" content="1.0">
+
+<title>Vibrance</title>
+<style>
+    html {
+        -webkit-transform: translate(-50%, -50%);
+        transform: translate(-50%, -50%);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+    }
+
+    @media (prefers-color-scheme: light) {
+        body {
+            background-color: #6e2b71;
+            text-align: center;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+        }
+
+        button {
+            background-color: #36093D;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+            padding: 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: large;
+        }
+
+        button:active {
+            background-color: #752983;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+            padding: 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: large;
+        }
+    }
+
+    @media (prefers-color-scheme: dark) {
+        body {
+            background-color: #36093D;
+            text-align: center;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+        }
+
+        button {
+            background-color: #6e2b71;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+            padding: 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: larger;
+        }
+
+        button:active {
+            background-color: #752983;
+            color: white;
+            font-family: "News Cycle", sans-serif;
+            padding: 20px;
+            border: none;
+            border-radius: 20px;
+            font-size: larger;
+        }
+    }
+</style>
+
+<script>
+    window.addEventListener("musickitloaded", () => {
+        configure();
+        console.info("MusicKit Loaded");
+    });
+    const configure = () => {
+        MusicKit.configure({
+            developerToken: "eyJhbGciOiJFUzI1NiIsImtpZCI6IjlDNUM1MlpXTlQifQ.eyJpc3MiOiJDUFJaOTQzODlIIiwiaWF0IjoxNzczNjI0MDE0LCJleHAiOjE3NzM2MjQwMTR9.Ublq7Ug--ZUvRa6111ZzsmgNtJth2VuXo-sDdqq7LeRHRYUG5clsKEuEUeJH3F9R4sjWJ9BYmsFMiwOzbT6ZzQ",
+            app: {
+                name: "Vibrance",
+                build: "1.0"
+            }
+        });
+    }
+
+    const onButtonClick = () => {
+        console.log("Auth Flow Started")
+        let music = MusicKit.getInstance();
+        music.authorize().then((token) => {
+            console.log("Authorized");
+            console.log("Token is: " + token);
+            window.location.href = "https://kgeok.github.io/Vibrance/AppleMusic/AuthDone/auth?token=" + encodeURIComponent(token);
+        }).catch(e => {
+            console.log('Error:' + e);
+        });
+    }
+</script>
+
+<body>
+    <h1>Sign In Required</h1>
+    <h2>You Will Need To Sign In to Apple Music To Continue</h2>
+    <button id="apple-music-authorize" onclick="onButtonClick()">Sign In With Apple</button>
+</body>

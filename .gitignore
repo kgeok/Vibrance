@@ -1,3 +1,4 @@
 aps.cer
 .DS_Store
-
+*.p8
+*.pem

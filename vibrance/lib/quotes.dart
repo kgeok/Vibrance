@@ -55,7 +55,7 @@ var quotes = {
       "Your courage to do what's right has to be greater than your fear of getting hurt"
 };
 
-var tips = {
+var inspiration = {
   1: "Don't Forget to drink water.",
   2: "Exercising for 30 mins is important everyday.",
   3: "Take a moment to breathe, you got this.",

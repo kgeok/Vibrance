@@ -92,8 +92,12 @@ Future makeDecisions(BuildContext context, mood) async {
         await probeLatestEvents(buffer[i].memoriestextone);
         break;
 
-      case "Tips":
-        await probeLatestTip();
+      case "Inspiration":
+        if (buffer[i].memoriessubtype == "Wellness") {
+          await probeLatestInspirationWellness();
+        } else if (buffer[i].memoriessubtype == "Bible") {
+          await probeLatestInspirationBible();
+        }
         break;
       case "Music":
         if (buffer[i].memoriessubtype == "Top Track") {
@@ -305,7 +309,7 @@ Future contingencyDecision(int index) async {
           break;
         case "Text":
           break;
-        case "Tips":
+        case "":
           break;
       }
     }

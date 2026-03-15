@@ -396,6 +396,12 @@ class VibranceDatabase {
     db.execute("DELETE FROM Memories WHERE id = $id");
   }
 
+  Future deleteMemoriesByServiceDB(String service) async {
+    final db = await instance.database;
+    db.query("Memories");
+    db.execute("DELETE FROM Memories WHERE provider = '$service'");
+  }
+
   Future removeService(String service) async {
     final db = await instance.database;
     db.query("Configuration");

@@ -1,6 +1,5 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors, unused_import, prefer_interpolation_to_compose_strings, unused_local_variable
+// ignore_for_file: avoid_print, use_build_context_synchronously, prefer_typing_uninitialized_variables,  prefer_const_constructors,  prefer_interpolation_to_compose_strings, unused_local_variable
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -12,6 +11,7 @@ import 'package:vibrance/decisions.dart';
 import 'package:vibrance/dialogs.dart';
 import 'package:vibrance/theme/custom_theme.dart';
 import 'package:vibrance/quotes.dart';
+import 'package:vibrance/auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spotify/spotify.dart' as spotify;
@@ -49,8 +49,7 @@ GlobalKey<MyAppState> key = GlobalKey();
 const sku = "Vibrance";
 const version = "1.0";
 const release = "Pre-Release, Concept E";
-const spotifycid = "677ce23bfdfd449e95956abadaded7a9";
-const spotifysid = "449148ca0aa44a9e8d0dff16b517c7de";
+const debug = true;
 double currentMood = 1;
 bool animations = true;
 //var currentTheme; //Light or Dark theme
@@ -172,7 +171,7 @@ const memoriesColors = {
   "Event": 0xFFFFEB3B,
   "Voice": 0xFF4CAF50,
   "Text": 0xFFFF9800,
-  "Tips": 0xFF8C8C8C,
+  "Inspiration": 0xFF8C8C8C,
   "Test": 0xFF0AA000,
   "Default": 0xFF000000
 };
@@ -221,7 +220,7 @@ class TriangleBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (var triangle in triangles) {
       final paint = Paint()
-        ..color = triangle.color.withValues(alpha: 0.2)
+        ..color = triangle.color.withValues(alpha: 0.15)
         ..style = PaintingStyle.fill;
 
       final path = Path();
@@ -262,7 +261,7 @@ class FloatingTrianglesBackground extends StatefulWidget {
   final List<Color> colors;
 
   const FloatingTrianglesBackground({
-    this.numberOfTriangles = 30,
+    this.numberOfTriangles = 15,
     this.colors = const [
       //Color(0xFF80DEEA),
       Color(0xFFE1BEE7),
@@ -274,6 +273,7 @@ class FloatingTrianglesBackground extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _FloatingTrianglesBackgroundState createState() =>
       _FloatingTrianglesBackgroundState();
 }
@@ -315,7 +315,7 @@ class _FloatingTrianglesBackgroundState
           ),
           size: random.nextDouble() * 15 + 10,
           color: widget.colors[random.nextInt(widget.colors.length)],
-          speed: random.nextDouble() * 0.5 + 0.1, // Movement speed
+          speed: random.nextDouble() * 0.25 + 0.1, // Movement speed
           directionAngle:
               random.nextDouble() * 2 * math.pi, // Random movement direction
           rotationAngle:
@@ -404,11 +404,47 @@ void cleanBuffers() {
   textBuffer = "";
 }
 
-void testOnboarding() {
+void addTestMemory() {
   //Use this for Debugging and Development only...
   VibranceDatabase.instance.updateMemoriesDB("Test", "Test", "System",
       "Note_One", "Note_Two", "Note_Three", "Note_Four", "Note_Five");
   print("Sample Entry Added");
+}
+
+void addTestService() {
+  //Use this for Debugging and Development only...
+  VibranceDatabase.instance
+      .addService(1, "Sample Provider", "", "", "", "", "");
+  print("Sample Service Added");
+}
+
+void addTestDay() {
+  //Use this for Debugging and Development only...
+  dayCounter++;
+  days.add(DayData(
+      daymood: currentMood,
+      daydate: date,
+      daycolorone: Color(0xFF0AA000),
+      daycolortwo: Color(0xFF0AA000),
+      daycolorthree: Color(0xFF0AA000),
+      daycolorfour: Color(0xFF0AA000),
+      daycolorfive: Color(0xFF0AA000),
+      daycolorsix: Color(0xFF0AA000),
+      daynote: "Note",
+      dayid: dayCounter,
+      daytextone: "Text"));
+
+  VibranceDatabase.instance.addDayDB(
+      dayCounter,
+      date,
+      3.0,
+      Color(0xFF0AA000),
+      Color(0xFF0AA000),
+      Color(0xFF0AA000),
+      Color(0xFF0AA000),
+      Color(0xFF0AA000),
+      Color(0xFF0AA000),
+      "Note");
 }
 
 //Audio Recording Components
@@ -426,7 +462,6 @@ Future beginRecording(BuildContext context) async {
     record.stop();
     isRecording = false;
     Navigator.of(context).pop();
-    //print(e);
     simpleDialog(context, "Unable to Start/Save Recording", "Error: $e",
         "Check Your Settings And Try Again", "error");
   }
@@ -521,7 +556,7 @@ Future authenticateSpotify(BuildContext context) async {
   var responseUri;
   final credentials = spotify.SpotifyApiCredentials(spotifycid, spotifysid);
   final grant = spotify.SpotifyApi.authorizationCodeGrant(credentials);
-  const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/";
+  const redirectUri = "https://kgeok.github.io/Vibrance/Spotify/AuthDone/";
   final scopes = [
     'user-read-email',
     'user-library-read',
@@ -537,9 +572,9 @@ Future authenticateSpotify(BuildContext context) async {
     ..setNavigationDelegate(
       NavigationDelegate(
         onNavigationRequest: (NavigationRequest request) async {
-          if (request.url.startsWith(redirectUri)) {
+          print(request.url);
+          if (request.url.startsWith(redirectUri + "?code=")) {
             responseUri = request.url;
-            // print("Got: $responseUri");
             spotifyApp =
                 spotify.SpotifyApi.fromAuthCodeGrant(grant, responseUri);
             var credentials = await spotifyApp.getCredentials();
@@ -551,6 +586,12 @@ Future authenticateSpotify(BuildContext context) async {
                 credentials.scopes,
                 credentials.expiration,
                 "");
+          } else if (request.url
+              .startsWith(redirectUri + "?error=access_denied")) {
+            //Navigator.of(context).pop();
+            print("Error With Sign In");
+            simpleDialog(context, "Sign In Not Complete",
+                "Sign In Was Unsuccessful, Please Try Again.", "", "error");
           }
           return NavigationDecision.navigate;
         },
@@ -675,17 +716,17 @@ Future probeLatestPodcastRSS(String url, albumart) async {
   }
 }
 
-Future probeLatestTip() async {
+Future probeLatestInspirationWellness() async {
   Random random = Random();
-  int randomBuffer = random.nextInt(tips.length);
+  int randomBuffer = random.nextInt(inspiration.length);
   results.add(MemoriesData(
     memoriesid: 0,
-    memoriestextone: tips.values.elementAt(randomBuffer),
+    memoriestextone: inspiration.values.elementAt(randomBuffer),
     memoriestexttwo: "",
-    memoriestype: "Tips",
+    memoriestype: "Inspiration",
     memoriessubtype: "Wellness",
     memoriesprovider: "System",
-    memoriesargone: tips.keys.elementAt(randomBuffer),
+    memoriesargone: inspiration.keys.elementAt(randomBuffer),
     memoriesargtwo: "",
     memoriesargthree: "",
     memoriesargfour: "",
@@ -695,10 +736,74 @@ Future probeLatestTip() async {
   addMemories();
 }
 
+Future probeLatestInspirationBible() async {
+  try {
+    int day = Random().nextInt(355);
+    var votd = await client.get(
+        Uri.parse("https://api.youversion.com/v1/verse_of_the_days/$day"),
+        headers: {"x-yvp-app-key": youversionsid.toString()}).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        print("A Timeout Error Occured.");
+        return http.Response('Error', 408);
+      },
+    );
+
+    var votdContent = jsonDecode(votd.body);
+
+    var fullverse = await client.get(
+        Uri.parse(
+            "https://api.youversion.com/v1/bibles/3034/passages/${votdContent["passage_id"]}"),
+        headers: {"x-yvp-app-key": youversionsid.toString()}).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        print("A Timeout Error Occured.");
+        return http.Response('Error', 408);
+      },
+    );
+
+    var fullverseContent = jsonDecode(fullverse.body);
+
+    results.add(MemoriesData(
+      memoriesid: 0,
+      memoriestextone:
+          "${fullverseContent["content"]} - ${fullverseContent["reference"]}",
+      memoriestexttwo: fullverseContent["id"],
+      memoriestype: "Inspiration",
+      memoriessubtype: "Bible",
+      memoriesprovider: "YouVersion",
+      memoriesargone: "",
+      memoriesargtwo: "",
+      memoriesargthree: "",
+      memoriesargfour: "",
+      memoriesweight: 3.0,
+    ));
+
+    addMemories();
+  } catch (e) {
+    print(e);
+    if (buffer.length == 1) {
+      results.add(MemoriesData(
+        memoriesid: 1,
+        memoriestextone: "No Memories",
+        memoriestexttwo: "",
+        memoriestype: "Default",
+        memoriessubtype: "Default",
+        memoriesprovider: "System",
+        memoriesargone: "Go to Settings to add Memories.",
+        memoriesargtwo: "",
+        memoriesweight: 3.0,
+      ));
+      memories.add(0);
+    }
+  }
+}
+
 Future probeTopTrackSpotify() async {
   try {
     if (await checkConnection('accounts.spotify.com')) {
       print('Connected to Spotify');
+
       if (spotifyApp != null) {
         var result;
         result = await spotifyApp.me.topTracks().first();
@@ -896,7 +1001,7 @@ Future probeLatestEvents(String name) async {
           var eventsBuffer = events.data;
 
           if (eventsBuffer != null) {
-            //We only want to use one event so lets randomize which one we use in the case theres multiple events
+            //We only want to use one event so lets randomize which one we use in the case theres mulInspirationle events
             Random random = Random();
             int randomBuffer = random.nextInt(eventsBuffer.length);
 /*             for (int i = 0; i < eventsBuffer.length; i++) {
@@ -1442,7 +1547,7 @@ Widget memoriesEntry(
                                         fontSize: cardFont1())),
                               ]))))));
 
-    case "Tips":
+    case "Inspiration":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
       return InkWell(
           splashColor: typecolor,
@@ -1874,14 +1979,14 @@ void memoriesDialog(
         },
       );
 
-    case "Tips":
+    case "Inspiration":
       var typecolor = Color(int.parse(memoriesColors[type].toString()));
       showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
               backgroundColor: Colors.grey,
-              title: Text("Tips", style: dialogHeader),
+              title: Text("Inspiration", style: dialogHeader),
               content: SingleChildScrollView(
                 child: ListBody(
                   children: <Widget>[
@@ -2249,7 +2354,20 @@ Future manageServices(BuildContext context) async {
                                                           .removeService(
                                                               services[index]
                                                                   .servicename);
+                                                      VibranceDatabase.instance
+                                                          .deleteMemoriesByServiceDB(
+                                                              services[index]
+                                                                  .servicename);
+                                                      switch (services[index]
+                                                          .servicename) {
+                                                        case "Spotify":
+                                                          spotifyApp = null;
+                                                          break;
+                                                        default:
+                                                          break;
+                                                      }
                                                       services.removeAt(index);
+
                                                       Navigator.of(context)
                                                           .pop();
                                                       Navigator.of(context)
@@ -2333,7 +2451,9 @@ void clearServicesWarning(BuildContext context) {
               onPressed: () {
                 VibranceDatabase.instance.removeAllServices();
                 services.clear();
+                VibranceDatabase.instance.deleteMemoriesByServiceDB("Spotify");
                 spotifyApp = null;
+                Navigator.of(context).pop();
                 Navigator.of(context).pop();
               },
             )
@@ -2478,7 +2598,7 @@ Future invokeSpotify(BuildContext context) async {
           services.indexWhere((item) => (item.servicename) == "Spotify");
       //If the result is not empty, which is considered a -1 index result, we can move forward
       if (spotifyindex != -1) {
-        //print('Connected to Spotify');
+        print('Connected to Spotify');
         spotifyApp = spotify.SpotifyApi(
             spotify.SpotifyApiCredentials(spotifycid, spotifysid,
                 accessToken: services[spotifyindex].dataone,
@@ -2511,6 +2631,32 @@ Future invokeSpotify(BuildContext context) async {
     }
   } catch (e) {
     print('Not Connected to Spotify');
+  }
+}
+
+Future invokeAppleMusic(BuildContext context) async {
+  try {
+    if (await checkConnection('music.apple.com') == true) {
+      //Let's grab the Services data from the DB and put it into our ServiceData object based List
+      if (services
+          .where((item) => (item.servicename) == "Apple_Music")
+          .isEmpty) {
+        //Let's only grab from DB if we really need to...
+        await VibranceDatabase.instance.provideServiceData();
+      }
+
+      //Let's find out which item in the list is the Spotify Cred Data...
+      var spotifyindex =
+          services.indexWhere((item) => (item.servicename) == "Apple_Music");
+      //If the result is not empty, which is considered a -1 index result, we can move forward
+      if (spotifyindex != -1) {
+        print('Connected to Apple Music');
+      } else {
+        //authenticateAppleMusic(context);
+      }
+    }
+  } catch (e) {
+    print('Not Connected to Apple Music');
   }
 }
 
@@ -3292,166 +3438,107 @@ class OnboardingPageState extends State<OnboardingPage> {
     //Spotify Components
 
     Future spotifyData(datatype) async {
-      if (spotifyApp != null) {
-        var result;
-        List searchResults = [];
-        Future pickSpotifyData(item) async {
-          //Dialog where we actually pick our songs or podcasts
-          switch (item) {
-            //Music Components
-            case "Recently Played":
-              result = await spotifyApp.me.recentlyPlayed(limit: 5).first();
-              result.items?.forEach((item) => searchResults.add(MemoriesData(
-                    memoriesid: item.track.id,
-                    memoriestype: "Music",
-                    memoriessubtype: "Track",
-                    memoriesprovider: "Spotify",
-                    memoriestextone: item.track.name,
-                    memoriestexttwo: item.track.artists[0].name,
-                    memoriesargone: "",
-                    memoriesargtwo: item.track.uri,
-                    memoriesargthree: "",
-                    memoriesweight: 0,
-                  )));
-              break;
+      try {
+        if (spotifyApp != null) {
+          var result;
+          List searchResults = [];
+          Future pickSpotifyData(item) async {
+            //Dialog where we actually pick our songs or podcasts
+            switch (item) {
+              //Music Components
+              case "Recently Played":
+                result = await spotifyApp.me.recentlyPlayed(limit: 5).first();
+                result.items?.forEach((item) => searchResults.add(MemoriesData(
+                      memoriesid: item.track.id,
+                      memoriestype: "Music",
+                      memoriessubtype: "Track",
+                      memoriesprovider: "Spotify",
+                      memoriestextone: item.track.name,
+                      memoriestexttwo: item.track.artists[0].name,
+                      memoriesargone: "",
+                      memoriesargtwo: item.track.uri,
+                      memoriesargthree: "",
+                      memoriesweight: 0,
+                    )));
+                break;
 
-            case "Albums":
-              result = await spotifyApp.me.savedAlbums().getPage(10, 0);
-              result.items?.forEach((item) => searchResults.add(MemoriesData(
-                    memoriesid: item.id,
-                    memoriestype: "Music",
-                    memoriessubtype: "Album",
-                    memoriesprovider: "Spotify",
-                    memoriestextone: item.name,
-                    memoriestexttwo: item.artists[0].name,
-                    memoriesargone: item.releaseDate,
-                    memoriesargtwo: item.uri,
-                    memoriesargthree: "",
-                    memoriesweight: 0,
-                  )));
-              break;
+              case "Albums":
+                result = await spotifyApp.me.savedAlbums().getPage(10, 0);
+                result.items?.forEach((item) => searchResults.add(MemoriesData(
+                      memoriesid: item.id,
+                      memoriestype: "Music",
+                      memoriessubtype: "Album",
+                      memoriesprovider: "Spotify",
+                      memoriestextone: item.name,
+                      memoriestexttwo: item.artists[0].name,
+                      memoriesargone: item.releaseDate,
+                      memoriesargtwo: item.uri,
+                      memoriesargthree: "",
+                      memoriesweight: 0,
+                    )));
+                break;
 
-            //Podcast Components
-            case "Shows":
-              result = await spotifyApp.me.savedShows().getPage(10, 0);
-              result.items?.forEach((item) => searchResults.add(MemoriesData(
-                    memoriesid: item.id,
-                    memoriestype: "Podcast",
-                    memoriessubtype: "Show",
-                    memoriesprovider: "Spotify",
-                    memoriestextone: item.name,
-                    memoriestexttwo: item.publisher,
-                    memoriesargone: item.description,
-                    memoriesargtwo: item.uri,
-                    memoriesargthree: "",
-                    memoriesweight: 0,
-                  )));
-              break;
-          }
+              //Podcast Components
+              case "Shows":
+                result = await spotifyApp.me.savedShows().getPage(10, 0);
+                result.items?.forEach((item) => searchResults.add(MemoriesData(
+                      memoriesid: item.id,
+                      memoriestype: "Podcast",
+                      memoriessubtype: "Show",
+                      memoriesprovider: "Spotify",
+                      memoriestextone: item.name,
+                      memoriestexttwo: item.publisher,
+                      memoriesargone: item.description,
+                      memoriesargtwo: item.uri,
+                      memoriesargthree: "",
+                      memoriesweight: 0,
+                    )));
+                break;
+            }
 
-          List<Widget> spotifyItemList(BuildContext context) {
-            return List<Widget>.generate(result.items.length, (int index) {
-              return ListTile(
-                onTap: () async {
-                  VibranceDatabase.instance.updateMemoriesDB(
-                      searchResults[index].memoriestype,
-                      searchResults[index].memoriessubtype,
-                      "Spotify",
-                      searchResults[index].memoriestextone,
-                      searchResults[index].memoriestexttwo,
-                      searchResults[index].memoriesid,
-                      await getAlbumArt(
-                          "Spotify",
-                          searchResults[index].memoriesid,
-                          searchResults[index].memoriessubtype),
-                      "");
-                  Navigator.pop(context);
-                },
-                title: Text(searchResults[index].memoriestextone,
-                    style: GoogleFonts.newsCycle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    )),
-                subtitle: Text(searchResults[index].memoriestexttwo,
-                    style: GoogleFonts.newsCycle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    )),
-              );
-            });
-          }
+            List<Widget> spotifyItemList(BuildContext context) {
+              return List<Widget>.generate(result.items.length, (int index) {
+                return ListTile(
+                  onTap: () async {
+                    VibranceDatabase.instance.updateMemoriesDB(
+                        searchResults[index].memoriestype,
+                        searchResults[index].memoriessubtype,
+                        "Spotify",
+                        searchResults[index].memoriestextone,
+                        searchResults[index].memoriestexttwo,
+                        searchResults[index].memoriesid,
+                        await getAlbumArt(
+                            "Spotify",
+                            searchResults[index].memoriesid,
+                            searchResults[index].memoriessubtype),
+                        "");
+                    Navigator.pop(context);
+                  },
+                  title: Text(searchResults[index].memoriestextone,
+                      style: GoogleFonts.newsCycle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      )),
+                  subtitle: Text(searchResults[index].memoriestexttwo,
+                      style: GoogleFonts.newsCycle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      )),
+                );
+              });
+            }
 
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                  title: Text('Select $item', style: dialogHeader),
-                  content: SingleChildScrollView(
-                    child: ListBody(children: spotifyItemList(context)),
-                  ),
-                  actions: <Widget>[
-                    TextButton(
-                      child: Text('Dismiss', style: dialogBody),
-                      onPressed: () {
-                        setState(() {
-                          Navigator.pop(context);
-                        });
-                      },
-                    )
-                  ]);
-            },
-          );
-        }
-
-        switch (datatype) {
-          case "Music":
             showDialog(
               context: context,
               builder: (BuildContext context) {
                 return AlertDialog(
-                    title: Text('Select Option', style: dialogHeader),
+                    title: Text('Select $item', style: dialogHeader),
                     content: SingleChildScrollView(
-                      child: ListBody(children: [
-                        SimpleDialogOption(
-                          onPressed: () {
-                            pickSpotifyData("Recently Played");
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Recently Played', style: dialogBody),
-                        ),
-                        SimpleDialogOption(
-                          onPressed: () {
-                            pickSpotifyData("Albums");
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Albums', style: dialogBody),
-                        ),
-                        SimpleDialogOption(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            VibranceDatabase.instance.updateMemoriesDB(
-                                "Music",
-                                "Top Track",
-                                "Spotify",
-                                "Top Track",
-                                "",
-                                "",
-                                "",
-                                "");
-                            simpleDialog(
-                                context,
-                                "Top Track Added",
-                                "Your Top Track Will Now Be Added Automatically.",
-                                "",
-                                "info");
-                          },
-                          child: Text('Top Track', style: dialogBody),
-                        ),
-                      ]),
+                      child: ListBody(children: spotifyItemList(context)),
                     ),
                     actions: <Widget>[
                       TextButton(
-                        child: Text('OK', style: dialogBody),
+                        child: Text('Dismiss', style: dialogBody),
                         onPressed: () {
                           setState(() {
                             Navigator.pop(context);
@@ -3461,16 +3548,81 @@ class OnboardingPageState extends State<OnboardingPage> {
                     ]);
               },
             );
+          }
 
-            break;
+          switch (datatype) {
+            case "Music":
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                      title: Text('Select Option', style: dialogHeader),
+                      content: SingleChildScrollView(
+                        child: ListBody(children: [
+                          SimpleDialogOption(
+                            onPressed: () {
+                              pickSpotifyData("Recently Played");
+                              Navigator.of(context).pop();
+                            },
+                            child: Text('Recently Played', style: dialogBody),
+                          ),
+                          SimpleDialogOption(
+                            onPressed: () {
+                              pickSpotifyData("Albums");
+                              Navigator.of(context).pop();
+                            },
+                            child: Text('Albums', style: dialogBody),
+                          ),
+                          SimpleDialogOption(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              VibranceDatabase.instance.updateMemoriesDB(
+                                  "Music",
+                                  "Top Track",
+                                  "Spotify",
+                                  "Top Track",
+                                  "",
+                                  "",
+                                  "",
+                                  "");
+                              simpleDialog(
+                                  context,
+                                  "Top Track Added",
+                                  "Your Top Track Will Now Be Added Automatically.",
+                                  "",
+                                  "info");
+                            },
+                            child: Text('Top Track', style: dialogBody),
+                          ),
+                        ]),
+                      ),
+                      actions: <Widget>[
+                        TextButton(
+                          child: Text('OK', style: dialogBody),
+                          onPressed: () {
+                            setState(() {
+                              Navigator.pop(context);
+                            });
+                          },
+                        )
+                      ]);
+                },
+              );
 
-          case "Podcasts":
-            pickSpotifyData("Shows");
-            break;
+              break;
 
-          default:
-            break;
+            case "Podcasts":
+              pickSpotifyData("Shows");
+              break;
+
+            default:
+              break;
+          }
         }
+      } catch (e) {
+        print('An Error Occurred');
+        simpleDialog(context, "An Error Occurred Reaching Spotify", "",
+            "Check Your Settings And Try Again", "error");
       }
     }
 
@@ -3610,16 +3762,6 @@ class OnboardingPageState extends State<OnboardingPage> {
                   child: ListBody(children: <Widget>[
                 SimpleDialogOption(
                   onPressed: () async {
-                    /*       if (Platform.isIOS &&
-                        Platform.operatingSystemVersion.startsWith("Version 17") &&
-                        enableCalendars2023OS == false) {
-                      simpleDialog(
-                          context,
-                          "Unable to Access Calendars",
-                          "Calendar Support is Currently Unavailable on iOS 17, iPadOS 17 and macOS Sonoma",
-                          "Support will be added at a later time. ",
-                          "error");
-                    } else { */
                     try {
                       print((await deviceCalendarPlugin.hasPermissions()).data);
                       //Because allCalendars is locked, lets make a buffer to store the data that we can touch
@@ -3959,6 +4101,28 @@ class OnboardingPageState extends State<OnboardingPage> {
                                       Navigator.of(context).pop();
                                       try {
                                         if (await checkConnection(
+                                            'music.apple.com')) {
+                                          if (!context.mounted) return;
+                                          await invokeAppleMusic(context);
+                                          //spotifyData("Music");
+                                        }
+                                      } catch (e) {
+                                        simpleDialog(
+                                            context,
+                                            "No Connection",
+                                            "Unable To Connect To Apple Music",
+                                            "Check Your Settings And Try Again",
+                                            "error");
+                                      }
+                                    },
+                                    child:
+                                        Text('Apple Music', style: dialogBody),
+                                  ),
+                                  SimpleDialogOption(
+                                    onPressed: () async {
+                                      Navigator.of(context).pop();
+                                      try {
+                                        if (await checkConnection(
                                             'accounts.spotify.com')) {
                                           if (!context.mounted) return;
                                           await invokeSpotify(context);
@@ -4099,17 +4263,61 @@ class OnboardingPageState extends State<OnboardingPage> {
                     ListTile(
                       leading: Icon(Icons.lightbulb),
                       onTap: () {
-                        VibranceDatabase.instance.updateMemoriesDB("Tips",
-                            "Wellness", "System", "Tips", "", "", "", "");
                         showDialog(
                           context: context,
                           builder: (BuildContext context) {
                             return AlertDialog(
-                                title: Text("Tips", style: dialogHeader),
+                                title: Text("Choose Inspiration",
+                                    style: dialogHeader),
                                 content: SingleChildScrollView(
                                   child: ListBody(
                                     children: <Widget>[
-                                      Text("Tips Added.", style: dialogBody),
+                                      SimpleDialogOption(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          VibranceDatabase.instance
+                                              .updateMemoriesDB(
+                                                  "Inspiration",
+                                                  "Wellness",
+                                                  "System",
+                                                  "Inspiration",
+                                                  "",
+                                                  "",
+                                                  "",
+                                                  "");
+                                          simpleDialog(
+                                              context,
+                                              "Inspiration Added",
+                                              "General Wellness Inspiration Has Been Added.",
+                                              "",
+                                              "info");
+                                        },
+                                        child: Text('General Wellness',
+                                            style: dialogBody),
+                                      ),
+                                      SimpleDialogOption(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          VibranceDatabase.instance
+                                              .updateMemoriesDB(
+                                                  "Inspiration",
+                                                  "Bible",
+                                                  "System",
+                                                  "Inspiration",
+                                                  "",
+                                                  "",
+                                                  "",
+                                                  "");
+                                          simpleDialog(
+                                              context,
+                                              "Inspiration Added",
+                                              "Bible Inspiration Has Been Added.",
+                                              "",
+                                              "info");
+                                        },
+                                        child: Text('Bible Prayer',
+                                            style: dialogBody),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -4124,9 +4332,9 @@ class OnboardingPageState extends State<OnboardingPage> {
                           },
                         );
                       },
-                      title: Text('Tips',
+                      title: Text('Inspiration',
                           style: GoogleFonts.newsCycle(color: Colors.white)),
-                      subtitle: Text("General tips to consider.",
+                      subtitle: Text("General Inspiration, Prayer and more.",
                           style: GoogleFonts.newsCycle(color: Colors.white)),
                     ),
                   ],
@@ -4827,9 +5035,7 @@ class SummaryPageState extends State<SummaryPage> {
     }
 
     return Scaffold(
-        appBar: AppBar(
-          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
-        ),
+        appBar: AppBar(),
         body: SingleChildScrollView(
             child: Column(children: [
           Card(
@@ -4969,6 +5175,17 @@ class SettingsPageState extends State<SettingsPage> {
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
+                debug
+                    ? ListTile(
+                        leading: Icon(Icons.settings_applications_sharp),
+                        title: Text("Debug Menu - INTERNAL",
+                            style: GoogleFonts.newsCycle(color: Colors.black)),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const DebugPage())),
+                      )
+                    : SizedBox(),
                 ListTile(
                   leading: Icon(Icons.group),
                   title: Text("Acknowledgements",
@@ -5048,12 +5265,6 @@ class SettingsPageState extends State<SettingsPage> {
                   VibranceDatabase.instance.updatePrefsDB();
                 }),
               ),
-/*           ListTile(
-            leading: Icon(Icons.texture_sharp),
-            title: Text("Add Test Entry",
-                style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => testOnboarding(),
-          ), */
             ],
           )),
           Card(
@@ -5067,14 +5278,149 @@ class SettingsPageState extends State<SettingsPage> {
                     style: GoogleFonts.newsCycle(color: Colors.red)),
                 onTap: () => clearDaysWarning(context),
               ),
-/*           ListTile(
-            leading: Icon(Icons.texture_sharp),
-            title: Text("Add Test Entry",
-                style: GoogleFonts.newsCycle(color: Colors.red)),
-            onTap: () => testOnboarding(),
-          ), */
             ],
           )),
+        ])));
+  }
+}
+
+class DebugPage extends StatefulWidget {
+  const DebugPage({super.key});
+  @override
+  State<DebugPage> createState() => DebugPageState();
+}
+
+class DebugPageState extends State<DebugPage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+          title: Text("", style: GoogleFonts.newsCycle(color: Colors.white)),
+        ),
+        body: SingleChildScrollView(
+            child: Column(children: [
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                    leading: Icon(Icons.key),
+                    title: Text("View Current API Keys",
+                        style: GoogleFonts.newsCycle(color: Colors.black)),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                              title:
+                                  Text("Current API Keys", style: dialogHeader),
+                              content: SingleChildScrollView(
+                                child: ListBody(
+                                  children: <Widget>[
+                                    Text("Spotify CID: $spotifycid \n",
+                                        style: dialogBody),
+                                    Text("Spotify SID: $spotifysid \n",
+                                        style: dialogBody),
+                                    Text("YouVersion: $youversionsid \n",
+                                        style: dialogBody),
+                                  ],
+                                ),
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('OK', style: dialogBody),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                )
+                              ]);
+                        },
+                      );
+                    }),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.add),
+                  title: Text("Add Test Memory",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => addTestMemory(),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.handshake),
+                  title: Text("Add Test Provider",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => addTestService(),
+                ),
+              ])),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.sunny_snowing),
+                  title: Text("Add Test Journal Entry",
+                      style: GoogleFonts.newsCycle(color: Colors.black)),
+                  onTap: () => addTestDay(),
+                ),
+              ])),
+          Card(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.book_rounded),
+                subtitle: journalentries ? Text("On") : Text("Off"),
+                title: Text("New Journal Entries",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                onTap: () => setState(() {
+                  journalentries = !journalentries;
+                  VibranceDatabase.instance.updatePrefsDB();
+                }),
+              ),
+            ],
+          )),
+          Card(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.sort),
+                subtitle: sorting ? Text("On") : Text("Off"),
+                title: Text("Memories Sorting",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                onTap: () => setState(() {
+                  sorting = !sorting;
+                  VibranceDatabase.instance.updatePrefsDB();
+                }),
+              ),
+            ],
+          )),
+          Card(
+              child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.delete_forever),
+                  title: Text("Reset DB (Will Crash!)",
+                      style: GoogleFonts.newsCycle(color: Colors.red)),
+                  onTap: () => VibranceDatabase.instance.resetDB(),
+                ),
+              ])),
         ])));
   }
 }
