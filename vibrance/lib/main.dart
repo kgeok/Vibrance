@@ -658,6 +658,104 @@ Future authenticateSpotify(BuildContext context) async {
       });
 }
 
+Future authenticateAppleMusic(BuildContext context) async {
+  //This is the provider for logging into Spotify
+  var responseUri;
+  String devToken = "";
+  devToken = generateAppleMusicKitDevToken();
+  final authUri =
+      "https://kgeok.github.io/Vibrance/AppleMusic/SignIn/?devtoken=$devToken";
+  const redirectUri = "https://kgeok.github.io/Vibrance/AppleMusic/AuthDone/";
+
+  var controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setNavigationDelegate(
+      NavigationDelegate(
+        onNavigationRequest: (NavigationRequest request) async {
+          print(request.url);
+          if (request.url.startsWith(redirectUri + "?token=")) {
+            responseUri = request.url;
+            print("Auth Complete");
+            VibranceDatabase.instance.addService(
+                1,
+                "Apple_Music",
+                "credentials.accessToken",
+                "credentials.refreshToken",
+                "credentials.scopes",
+                "credentials.expiration",
+                "");
+          } else if (request.url
+              .startsWith(redirectUri + "?error=access_denied")) {
+            //Navigator.of(context).pop();
+            print("Error With Sign In");
+            simpleDialog(context, "Sign In Not Complete",
+                "Sign In Was Unsuccessful, Please Try Again.", "", "error");
+          }
+          return NavigationDecision.navigate;
+        },
+      ),
+    )
+    ..loadRequest(Uri.parse(authUri.toString())).timeout(
+      const Duration(seconds: 5),
+    );
+
+  showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            "Sign In Required",
+            style: dialogHeader,
+          ),
+          content: Text(
+            "You Will Need To Sign Into Apple Music To Continue",
+            style: dialogBody,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel', style: dialogBody),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  showModalBottomSheet(
+                      context: context,
+                      enableDrag: false,
+                      isScrollControlled: true,
+                      useRootNavigator: true,
+                      builder: (BuildContext context) {
+                        return FractionallySizedBox(
+                            heightFactor: 0.9,
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  IconButton(
+                                      onPressed: () {
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
+                                      },
+                                      icon: Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 30,
+                                      )),
+                                  Expanded(
+                                      child: WebViewWidget(
+                                          controller: controller)),
+                                ]));
+                      });
+                },
+                child: Text('OK', style: dialogBody))
+          ],
+        );
+      });
+}
+
 //Podcast Components
 
 Future probeLatestPodcastRSS(String url, albumart) async {
@@ -736,6 +834,19 @@ Future probeLatestInspirationWellness() async {
   addMemories();
 }
 
+Future testAppleMusicConnection(String token) async {
+  try {
+    var response = await client.get(
+        Uri.parse("https://api.music.apple.com/v1/test"),
+        headers: {"Authorization": "Bearer $token"});
+
+    var content = ("HTTP ${response.statusCode}");
+    print(content);
+  } catch (e) {
+    print("An Error Occurred: $e");
+  }
+}
+
 Future probeLatestInspirationBible() async {
   try {
     int day = Random().nextInt(355);
@@ -744,7 +855,7 @@ Future probeLatestInspirationBible() async {
         headers: {"x-yvp-app-key": youversionsid.toString()}).timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        print("A Timeout Error Occured.");
+        print("A Timeout Error Occurred.");
         return http.Response('Error', 408);
       },
     );
@@ -757,7 +868,7 @@ Future probeLatestInspirationBible() async {
         headers: {"x-yvp-app-key": youversionsid.toString()}).timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        print("A Timeout Error Occured.");
+        print("A Timeout Error Occurred.");
         return http.Response('Error', 408);
       },
     );
@@ -2646,13 +2757,13 @@ Future invokeAppleMusic(BuildContext context) async {
       }
 
       //Let's find out which item in the list is the Spotify Cred Data...
-      var spotifyindex =
+      var applemusicindex =
           services.indexWhere((item) => (item.servicename) == "Apple_Music");
       //If the result is not empty, which is considered a -1 index result, we can move forward
-      if (spotifyindex != -1) {
+      if (applemusicindex != -1) {
         print('Connected to Apple Music');
       } else {
-        //authenticateAppleMusic(context);
+        authenticateAppleMusic(context);
       }
     }
   } catch (e) {
@@ -5405,6 +5516,21 @@ class DebugPageState extends State<DebugPage> {
                 onTap: () => setState(() {
                   sorting = !sorting;
                   VibranceDatabase.instance.updatePrefsDB();
+                }),
+              ),
+            ],
+          )),
+          Card(
+              child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.radio_button_checked),
+                title: Text("Test Function",
+                    style: GoogleFonts.newsCycle(color: Colors.black)),
+                onTap: () => setState(() {
+                  null;
                 }),
               ),
             ],

@@ -51,6 +51,7 @@ dependencies:
   spotify: ^0.13.7
   webview_flutter: ^4.13.0
   fl_chart: ^1.1.0
+  jose: ^0.3.5
 
 dev_dependencies:
   flutter_test:
